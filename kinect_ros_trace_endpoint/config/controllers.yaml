@@ -1,0 +1,15 @@
+controller_names:
+  - iiwa14_arm_controller
+
+iiwa14_arm_controller:
+  action_ns: follow_joint_trajectory
+  type: FollowJointTrajectory
+  default: true
+  joints:
+    - URDFLBRiiwa14Joint1
+    - URDFLBRiiwa14Joint2
+    - URDFLBRiiwaJoint3
+    - URDFLBRiiwaJoint4
+    - URDFLBRiiwaJoint5
+    - URDFLBRiiwaJoint6
+    - URDFLBRiiwaJoint7
