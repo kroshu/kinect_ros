@@ -1,0 +1,18 @@
+fake_joint_trajectory_controller:
+  ros__parameters:
+    joints:
+      - URDFLBRiiwa14Joint1
+      - URDFLBRiiwa14Joint2
+      - URDFLBRiiwaJoint3
+      - URDFLBRiiwaJoint4
+      - URDFLBRiiwaJoint5
+      - URDFLBRiiwaJoint6
+      - URDFLBRiiwaJoint7
+    write_op_modes:
+      - URDFLBRiiwa14Joint1
+      - URDFLBRiiwa14Joint2
+      - URDFLBRiiwaJoint3
+      - URDFLBRiiwaJoint4
+      - URDFLBRiiwaJoint5
+      - URDFLBRiiwaJoint6
+      - URDFLBRiiwaJoint7
