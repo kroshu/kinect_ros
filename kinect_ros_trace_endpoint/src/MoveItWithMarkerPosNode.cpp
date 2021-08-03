@@ -28,81 +28,43 @@ MoveItWithMarkerPosNode::MoveItWithMarkerPosNode(
 : rclcpp::Node(name, "", node_options),
   moveit_cpp_(std::make_shared<moveit::planning_interface::MoveItCpp>(
       static_cast<rclcpp::Node::SharedPtr>(this))),
-  arm("iiwa14_arm", moveit_cpp_)
+  arm_("iiwa14_arm", moveit_cpp_)
 {
-  // Get the planning_scene_monitor to publish scene diff's for RViz visualization
-  moveit_cpp_->getPlanningSceneMonitor()->providePlanningSceneService();
-  moveit_cpp_->getPlanningSceneMonitor()->setPlanningScenePublishingFrequency(25);
-
-  robot_state_publisher_ = this->create_publisher<moveit_msgs::msg::DisplayRobotState>(
-    "display_robot_state", 1);
-  qos.best_effort();
+  qos_.best_effort();
   msg_strategy =
     std::make_shared<rclcpp::message_memory_strategy::
-      MessageMemoryStrategy<visualization_msgs::msg::MarkerArray>>();
-  callback = [this](visualization_msgs::msg::MarkerArray::ConstSharedPtr msg)
-    {markersReceivedCallback(msg);};
-  marker_array_subscriber_ = this->create_subscription<visualization_msgs::msg::MarkerArray>(
-    "markers",
-    qos, callback, rclcpp::SubscriptionOptions(), msg_strategy);
-  configureScene();
+      MessageMemoryStrategy<geometry_msgs::msg::Pose>>();
+  callback_ = [this](geometry_msgs::msg::Pose::ConstSharedPtr msg)
+    {goalReceivedCallback(msg);};
+  goal_pos_subscriber_ = this->create_subscription<geometry_msgs::msg::Pose>(
+    "goal_pos",
+    qos_, callback_, rclcpp::SubscriptionOptions(), msg_strategy);
 }
 
 MoveItWithMarkerPosNode::~MoveItWithMarkerPosNode()
 {
 }
 
-void MoveItWithMarkerPosNode::configureScene()
+
+void MoveItWithMarkerPosNode::goalReceivedCallback(
+  geometry_msgs::msg::Pose::ConstSharedPtr msg)
 {
-  // Create collision object, planning shouldn't be too easy
-  moveit_msgs::msg::CollisionObject collision_object;
-  collision_object.header.frame_id = "URDFLBRiiwa14RobotBase";
-  collision_object.id = "box";
-
-  shape_msgs::msg::SolidPrimitive box;
-  box.type = box.BOX;
-  box.dimensions = {0.1, 0.4, 0.1};
-
-  geometry_msgs::msg::Pose box_pose;
-  box_pose.position.x = 0.4;
-  box_pose.position.y = 0.0;
-  box_pose.position.z = 1.0;
-
-  collision_object.primitives.push_back(box);
-  collision_object.primitive_poses.push_back(box_pose);
-  collision_object.operation = collision_object.ADD;
-
-  // Add object to planning scene
-  {  // Lock PlanningScene
-    planning_scene_monitor::LockedPlanningSceneRW scene(moveit_cpp_->getPlanningSceneMonitor());
-    scene->processCollisionObjectMsg(collision_object);
-  }  // Unlock PlanningScene
-}
-
-void MoveItWithMarkerPosNode::markersReceivedCallback(
-  visualization_msgs::msg::MarkerArray::ConstSharedPtr msg)
-{
-  auto handtip_it = std::find_if(
-    msg->markers.begin(), msg->markers.end(),
-    [](const visualization_msgs::msg::Marker & marker) {
-      int joint_id = marker.id % 100;
-      return joint_id == static_cast<int>(RightArmJoints::Handtip);
-    });
-
   // Set joint state goal
   RCLCPP_INFO(get_logger(), "Set goal");
   geometry_msgs::msg::PoseStamped goal_pose;
   goal_pose.header.frame_id = "world";
-  goal_pose.pose = handtip_it->pose;
-  arm.setGoal(goal_pose, "URDFLBRiiwaAxis7");
+  goal_pose.pose.position = msg->position;
+  goal_pose.pose.orientation = msg->orientation;
+  RCLCPP_INFO(get_logger(), std::to_string(goal_pose.pose.orientation.x));
+  arm_.setGoal(goal_pose, "URDFLBRiiwaAxis7");
 
   // Run actual plan
   RCLCPP_INFO(get_logger(), "Plan to goal");
-  const auto plan_solution_1 = arm.plan();
+  const auto plan_solution_1 = arm_.plan();
   if (plan_solution_1) {
     RCLCPP_INFO(get_logger(), "arm.execute()");
-    arm.execute();
-  }
+    arm_.execute();
+  } else {RCLCPP_WARN(get_logger(), "Pose cannot be reached");}
 }
 
 }  // namespace marker_moveit
