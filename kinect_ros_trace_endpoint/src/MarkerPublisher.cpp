@@ -29,8 +29,7 @@ MarkerPublisher::MarkerPublisher()
 {
   qos_.best_effort();
   marker_array_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-    "markers",
-    qos_);
+    "body_tracking_data", 1);
 
   marker_array_.markers.clear();
   marker_.header.frame_id = "world";

@@ -9,6 +9,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wpedantic)
 endif()
 
+include_directories(include)
+
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(moveit_common REQUIRED)
@@ -37,6 +39,15 @@ ament_target_dependencies(marker_publisher
   lifecycle_msgs
   kroshu_ros2_core
 )
+
+add_executable(pose_publisher src/PosePublisher.cpp)
+ament_target_dependencies(pose_publisher
+  visualization_msgs
+  rclcpp
+  rclcpp_lifecycle
+  lifecycle_msgs
+  kroshu_ros2_core
+)
 target_link_libraries(marker_publisher ${kroshu_ros2_core_LIBRARIES})
 
 target_include_directories(marker_publisher
@@ -44,7 +55,7 @@ target_include_directories(marker_publisher
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     ${kroshu_ros2_core_INCLUDE_DIRS})
 
-install(TARGETS moveit_with_markerpos marker_publisher
+install(TARGETS moveit_with_markerpos marker_publisher pose_publisher
   EXPORT export_${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}
 )

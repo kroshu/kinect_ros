@@ -12,23 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KINECT_ROS_TRACE_ENDPOINT__MARKERPUBLISHER_HPP_
-#define KINECT_ROS_TRACE_ENDPOINT__MARKERPUBLISHER_HPP_
+#ifndef KINECT_ROS_TRACE_ENDPOINT__POSEPUBLISHER_HPP_
+#define KINECT_ROS_TRACE_ENDPOINT__POSEPUBLISHER_HPP_
 
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <thread>
+#include <vector>
 
 #include "kroshu_ros2_core/ROS2BaseNode.hpp"
 
-namespace marker_moveit
+namespace pose_debug
 {
 
-class MarkerPublisher : public kroshu_ros2_core::ROS2BaseNode
+class PosePublisher : public kroshu_ros2_core::ROS2BaseNode
 {
 public:
-  MarkerPublisher();
-  ~MarkerPublisher() override;
+  PosePublisher();
+  ~PosePublisher() override;
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_activate(const rclcpp_lifecycle::State & state) override;
@@ -37,24 +38,19 @@ public:
   on_deactivate(const rclcpp_lifecycle::State & state) override;
 
 private:
-  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr
-    marker_array_publisher_;
-  visualization_msgs::msg::MarkerArray marker_array_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Pose>::SharedPtr
+    pose_publisher_;
+  geometry_msgs::msg::Pose position_;
+  std::vector<double> orientation_vector;
+  rclcpp::Parameter orientation_;
+  geometry_msgs::msg::Quaternion orientation_q_ = geometry_msgs::msg::Quaternion();
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
   std::thread publish_thread_;
-  float alpha_rad_ = 0.0;
-  visualization_msgs::msg::Marker marker_;
-  const float circle_r_ = 0.1;
-  const std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(1000);  // 250
-  const float circle_step_rad_ = M_PI / 5.0;
-  const float z_offset_ = 0.9;
-
-  const int kinect_endpoint_id_ = 16;
-  const float x_starter_pos_ = 0.5;
+  const std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(250);
 
   void publish_loop();
 };
 
-}  // namespace marker_moveit
+}  // namespace pose_debug
 
-#endif  // KINECT_ROS_TRACE_ENDPOINT__MARKERPUBLISHER_HPP_
+#endif  // KINECT_ROS_TRACE_ENDPOINT__POSEPUBLISHER_HPP_

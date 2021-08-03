@@ -78,9 +78,11 @@ def generate_launch_description():
                             'trajectory_execution.allowed_start_tolerance': 0.01}
 
     controllers_yaml = load_yaml('kinect_ros_trace_endpoint', 'config/fake_controllers.yaml')
+
     fake_controller = {'moveit_fake_controller_manager': controllers_yaml,
                        'moveit_controller_manager':
                        'moveit_fake_controller_manager/MoveItFakeControllerManager'}
+
     kinect_ros_trace_endpoint_node = Node(package='kinect_ros_trace_endpoint',
                                           executable='moveit_with_markerpos',
                                           name='moveit_with_markerpos',
@@ -130,11 +132,5 @@ def generate_launch_description():
                                  output='log',
                                  parameters=[{'source_list': ['/reference_joint_state']}])
 
-    proba = Node(package='proba',
-                 executable='proba',
-                 name='proba',
-                 output='screen',
-                 parameters=[{'fake_execution': bool(1)}])
-
-    return LaunchDescription([static_tf, robot_state_publisher, rviz_node, joint_state_publisher,
-                              kinect_ros_trace_endpoint_node, proba])
+    return LaunchDescription([static_tf, robot_state_publisher, rviz_node,
+                              joint_state_publisher, kinect_ros_trace_endpoint_node])
