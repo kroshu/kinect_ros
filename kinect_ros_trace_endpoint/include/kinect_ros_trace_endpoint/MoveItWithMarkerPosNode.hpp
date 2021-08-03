@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MARKER_MOVEIT__MOVEITWITHMARKERPOSNODE_HPP_
-#define MARKER_MOVEIT__MOVEITWITHMARKERPOSNODE_HPP_
+#ifndef KINECT_ROS_TRACE_ENDPOINT__MOVEITWITHMARKERPOSNODE_HPP_
+#define KINECT_ROS_TRACE_ENDPOINT__MOVEITWITHMARKERPOSNODE_HPP_
 
 #include <moveit/moveit_cpp/moveit_cpp.h>
 #include <moveit/moveit_cpp/planning_component.h>
@@ -39,21 +39,18 @@ public:
 
 private:
   moveit::planning_interface::MoveItCppPtr moveit_cpp_;
-  moveit::planning_interface::PlanningComponent arm;
-  rclcpp::Publisher<moveit_msgs::msg::DisplayRobotState>::SharedPtr robot_state_publisher_;
-  rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr marker_array_subscriber_;
-  rclcpp::QoS qos = rclcpp::QoS(rclcpp::KeepLast(1));
-  rclcpp::message_memory_strategy::MessageMemoryStrategy<visualization_msgs::msg::MarkerArray>::
+  moveit::planning_interface::PlanningComponent arm_;
+  rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr goal_pos_subscriber_;
+  rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
+  rclcpp::message_memory_strategy::MessageMemoryStrategy<geometry_msgs::msg::Pose>::
   SharedPtr msg_strategy;
-  std::function<void(visualization_msgs::msg::MarkerArray::ConstSharedPtr msg)> callback;
+  std::function<void(geometry_msgs::msg::Pose::ConstSharedPtr msg)> callback_;
 
-  enum class RightArmJoints {Clavicle = 11, Shoulder, Elbow, Wrist, Hand, Handtip};
 
-  void configureScene();
-  void markersReceivedCallback(
-    visualization_msgs::msg::MarkerArray::ConstSharedPtr msg);
+  void goalReceivedCallback(
+    geometry_msgs::msg::Pose::ConstSharedPtr msg);
 };
 
 }  // namespace marker_moveit
 
-#endif  // MARKER_MOVEIT__MOVEITWITHMARKERPOSNODE_HPP_
+#endif  // KINECT_ROS_TRACE_ENDPOINT__MOVEITWITHMARKERPOSNODE_HPP_
