@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KINECT_ROS_TRACE_ENDPOINT__MARKERPUBLISHER_HPP_
-#define KINECT_ROS_TRACE_ENDPOINT__MARKERPUBLISHER_HPP_
+#ifndef MARKER_MOVEIT__MARKERPUBLISHER_HPP_
+#define MARKER_MOVEIT__MARKERPUBLISHER_HPP_
 
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -45,9 +45,9 @@ private:
   float alpha_rad_ = 0.0;
   visualization_msgs::msg::Marker marker_;
   const float circle_r_ = 0.1;
-  const std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(1000);  // 250
-  const float circle_step_rad_ = M_PI / 5.0;
-  const float z_offset_ = 0.9;
+  const std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(250);
+  const float circle_step_rad_ = M_PI / 36.0;
+  const float z_offset_ = 0.2;
 
   const int kinect_endpoint_id_ = 16;
   const float x_starter_pos_ = 0.5;
@@ -57,4 +57,4 @@ private:
 
 }  // namespace marker_moveit
 
-#endif  // KINECT_ROS_TRACE_ENDPOINT__MARKERPUBLISHER_HPP_
+#endif  // MARKER_MOVEIT__MARKERPUBLISHER_HPP_
