@@ -23,13 +23,17 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(kuka_sunrise_interfaces REQUIRED)
+find_package(std_srvs REQUIRED)
+
+add_library(utils SHARED
+  src/GeometryUtils.cpp)
+ament_target_dependencies(utils rclcpp)
 
 add_executable(filter_points src/FilterPoints.cpp)
-ament_target_dependencies(filter_points rclcpp rclcpp_lifecycle visualization_msgs kuka_sunrise_interfaces)
+ament_target_dependencies(filter_points rclcpp rclcpp_lifecycle visualization_msgs std_srvs)
+target_link_libraries(filter_points utils)
 
-install(TARGETS  filter_points
-  EXPORT export_${PROJECT_NAME}
+install(TARGETS filter_points utils
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

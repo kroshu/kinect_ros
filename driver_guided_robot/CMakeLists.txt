@@ -23,18 +23,15 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(kuka_sunrise_interfaces REQUIRED)
 
 include_directories(include)
 
-add_executable(init_control
-    src/init_state/init_control.cpp)
-ament_target_dependencies(init_control rclcpp rclcpp_lifecycle sensor_msgs geometry_msgs)
-
 add_executable(system_manager
     src/control_system/system_manager.cpp)
-ament_target_dependencies(system_manager rclcpp rclcpp_lifecycle std_msgs std_srvs)
+ament_target_dependencies(system_manager rclcpp rclcpp_lifecycle std_msgs std_srvs kuka_sunrise_interfaces)
 
-install(TARGETS init_control system_manager
+install(TARGETS system_manager
     DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch
