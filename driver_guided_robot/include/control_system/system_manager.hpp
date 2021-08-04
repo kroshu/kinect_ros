@@ -16,6 +16,7 @@
 #define CONTROL_SYSTEM__SYSTEM_MANAGER_HPP_
 
 #include <vector>
+#include <memory>
 #include <string>
 
 #include "rclcpp/rclcpp.hpp"
@@ -25,6 +26,8 @@
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_srvs/srv/set_bool.hpp"
+#include "std_srvs/srv/trigger.hpp"
+#include "kuka_sunrise_interfaces/srv/get_state.hpp"
 
 namespace driver_guided_robot
 {
@@ -39,24 +42,20 @@ public:
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_configure(const rclcpp_lifecycle::State &);
-
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_cleanup(const rclcpp_lifecycle::State &);
-
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_shutdown(const rclcpp_lifecycle::State &);
-
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_activate(const rclcpp_lifecycle::State &);
-
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_deactivate(const rclcpp_lifecycle::State &);
-
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_error(const rclcpp_lifecycle::State &);
 
 private:
-  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::JointState>::SharedPtr reference_joint_state_publisher_;
+  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::JointState>::SharedPtr
+    reference_joint_state_publisher_;
   bool changeState(const std::string & node_name, std::uint8_t transition);
   bool changeRobotCommandingState(bool is_active);
   void robotCommandingStateChanged(bool is_active);
@@ -67,8 +66,21 @@ private:
   bool robot_control_active_;
   sensor_msgs::msg::JointState::SharedPtr reference_joint_state_;
 
-  rclcpp::QoS qos_;
+  void GetFRIState();
+  void MonitoringLoop();
+  bool start_ = true;
+  bool stop_ = false;
+  int lbr_state_ = 0;
+  rclcpp::Client<kuka_sunrise_interfaces::srv::GetState>::SharedPtr get_state_client_;
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stop_processing_client_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr trigger_change_service_;
+  std_srvs::srv::Trigger::Request::SharedPtr trigger_request_ =
+    std::make_shared<std_srvs::srv::Trigger::Request>();
   rclcpp::callback_group::CallbackGroup::SharedPtr cbg_;
+  rclcpp::QoS qos_;
+  std::thread polling_thread_;
+  const std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(
+    200);
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SUCCESS =
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;

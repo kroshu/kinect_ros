@@ -3,9 +3,9 @@
 <package format="3">
   <name>filter_points</name>
   <version>0.0.0</version>
-  <description>Filters the joint positions in body_tracking_data topic</description>
+  <description>Filters the joint positions in body_tracking_data topic and calculates the relative endpoint position</description>
   <maintainer email="svastits1@gmail.com">Aron Svastits</maintainer>
-  <license>TODO: License declaration</license>
+  <license>BSD</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   
