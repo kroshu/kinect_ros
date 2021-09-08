@@ -31,10 +31,11 @@ PosePublisher::PosePublisher()
 {
   qos_.best_effort();
   pose_publisher_ = this->create_publisher<geometry_msgs::msg::Pose>("goal_pos", 1);
-  // TODO(Svastits): declare parameters to be able to control with them during runtime
+  // TODO(Svastits): error handling for parameters
   this->declare_parameter("x_pos", rclcpp::ParameterValue(static_cast<float>(0)));
   this->declare_parameter("y_pos", rclcpp::ParameterValue(static_cast<float>(0)));
   this->declare_parameter("z_pos", rclcpp::ParameterValue(static_cast<float>(1.258)));
+  this->declare_parameter("sleep_ms", rclcpp::ParameterValue(static_cast<int>(250)));
   this->declare_parameter("orientation", std::vector<double>{0, 0, 0, 1});
 }
 
@@ -68,6 +69,8 @@ void PosePublisher::publish_loop()
     this->get_parameter("x_pos", position_.position.x);   // TODO(Svastits): missing error handling
     this->get_parameter("y_pos", position_.position.y);
     this->get_parameter("z_pos", position_.position.z);
+    this->get_parameter("sleep_ms", sleep_ms_);
+    sleeping_time_ms_ = std::chrono::milliseconds(sleep_ms_);
     orientation_vector = {0.0, 0.0, 0.0, 1.0};
     this->get_parameter("orientation", orientation_vector);
     position_.orientation.x = orientation_vector[0];

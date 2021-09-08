@@ -79,7 +79,6 @@ on_configure(
     return ERROR;
   }
   return SUCCESS;
-  return SUCCESS;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SystemManager::on_cleanup(

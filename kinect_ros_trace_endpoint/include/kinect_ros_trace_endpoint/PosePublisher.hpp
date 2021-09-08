@@ -46,7 +46,8 @@ private:
   geometry_msgs::msg::Quaternion orientation_q_ = geometry_msgs::msg::Quaternion();
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
   std::thread publish_thread_;
-  const std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(250);
+  int sleep_ms_ = 250;
+  std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(200);
 
   void publish_loop();
 };

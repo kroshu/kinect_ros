@@ -24,26 +24,34 @@
 
 namespace filter_points
 {
-// Transforms the given point from the coordinate system of the camera
-// to that of the robot
+/*
+ *  @brief  Transforms the given point from the coordinate system of the camera
+ *          to that of the robot
+ */
 void CameraToRobot(geometry_msgs::msg::Point & pos1);
 
-// Calculates the crossproduct of 2 vectors
-//  - param normalize (bool): if the result should be normalized
+/*
+ *  @brief  Calculates the crossproduct of 2 vectors
+ *  @param  normalize (bool): if the result should be normalized
+ */
 geometry_msgs::msg::Point CrossProduct(
   const geometry_msgs::msg::Point & pos1,
   const geometry_msgs::msg::Point & pos2, bool normalize = true);
 
-// Calculate pose difference
-//   - param coord_trans (bool): if the result shoud be transformed
-//     from camera to robot frame
+/*
+ *  @brief  Calculate pose difference
+ *  @param  coord_trans (bool): if the result shoud be transformed
+ *          from camera to robot frame
+ */
 geometry_msgs::msg::Point PoseDiff(
   const geometry_msgs::msg::Point & pos1,
   const geometry_msgs::msg::Point & pos2, bool coord_trans = true);
 
-// Calculates the quaternion corresponding to the 3 unit vectors
-//  - param or1, or2 and or3 are the unit vectors for x, y and z directions
-//    in the new coordinate system
+/*
+ *  @brief  Calculates the quaternion corresponding to the 3 unit vectors
+ *  @param  or1, or2 and or3 are the unit vectors for x, y and z directions
+ *          in the new coordinate system
+ */
 geometry_msgs::msg::Quaternion ToQuaternion(
   const geometry_msgs::msg::Point & or1,
   const geometry_msgs::msg::Point & or2, const geometry_msgs::msg::Point & or3);

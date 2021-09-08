@@ -1,14 +1,11 @@
-fake_joint_trajectory_controller:
-  ros__parameters:
-    joints:
-      - URDFLBRiiwa14Joint1
-      - URDFLBRiiwa14Joint2
-      - URDFLBRiiwaJoint3
-      - URDFLBRiiwaJoint4
-      - URDFLBRiiwaJoint5
-      - URDFLBRiiwaJoint6
-      - URDFLBRiiwaJoint7
-    write_op_modes:
+controller_names:
+  - iiwa_arm_controller
+
+iiwa_arm_controller:
+  action_ns: follow_joint_trajectory
+  type: FollowJointTrajectory
+  default: true
+  joints:
       - URDFLBRiiwa14Joint1
       - URDFLBRiiwa14Joint2
       - URDFLBRiiwaJoint3
