@@ -65,27 +65,18 @@ def generate_launch_description():
 
     kinematics_yaml = load_yaml('kinect_ros_trace_endpoint', 'config/kinematics.yaml')
 
-    ompl_planning_pipeline_config = {'ompl': {
-        'planning_plugin': 'ompl_interface/OMPLPlanner',
-        'request_adapters': """default_planner_request_adapters/AddTimeOptimalParameterization
-        default_planner_request_adapters/FixWorkspaceBounds
-        default_planner_request_adapters/FixStartStateBounds
-        default_planner_request_adapters/FixStartStateCollision
-        default_planner_request_adapters/FixStartStatePathConstraints""",
-        'start_state_max_bounds_error': 0.1}}
-    ompl_planning_yaml = load_yaml('kinect_ros_trace_endpoint', 'config/ompl_planning.yaml')
+    ompl_planning_pipeline_config = {
+        'planning_pipelines': ['ompl'],
+        'ompl': {
+            'planning_plugin': 'ompl_interface/OMPLPlanner',
+            'request_adapters': """default_planner_request_adapters/AddTimeOptimalParameterization default_planner_request_adapters/FixWorkspaceBounds default_planner_request_adapters/FixStartStateBounds default_planner_request_adapters/FixStartStateCollision default_planner_request_adapters/FixStartStatePathConstraints""",
+            'start_state_max_bounds_error': 0.1,
+        },
+    }
+    ompl_planning_yaml = load_yaml(
+        'kinect_ros_trace_endpoint', 'config/ompl_planning.yaml'
+    )
     ompl_planning_pipeline_config['ompl'].update(ompl_planning_yaml)
-
-    trajectory_execution = {'moveit_manage_controllers': True,
-
-                            'trajectory_execution.allowed_execution_duration_scaling': 1.2,
-                            'trajectory_execution.allowed_goal_duration_margin': 0.5,
-                            'trajectory_execution.allowed_start_tolerance': 0.01}
-
-    controllers_yaml = load_yaml('kinect_ros_trace_endpoint', 'config/fake_controllers.yaml')
-    moveit_controllers = {'moveit_fake_controller_manager': controllers_yaml,
-                          'moveit_controller_manager':
-                              'moveit_fake_controller_manager/MoveItFakeControllerManager'}
 
     kinect_ros_trace_endpoint_node = Node(package='kinect_ros_trace_endpoint',
                                           executable='moveit_with_markerpos',
@@ -98,9 +89,8 @@ def generate_launch_description():
                                                       robot_description,
                                                       robot_description_semantic,
                                                       kinematics_yaml,
-                                                      ompl_planning_pipeline_config,
-                                                      trajectory_execution,
-                                                      moveit_controllers])
+                                                      ompl_planning_pipeline_config
+                                                      ])
 
     kuka_sunrise_dir = get_package_share_directory('kuka_sunrise')
 
