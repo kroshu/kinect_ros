@@ -72,10 +72,10 @@ private:
   bool stop_ = false;
   int lbr_state_ = 0;
   rclcpp::Client<kuka_sunrise_interfaces::srv::GetState>::SharedPtr get_state_client_;
-  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stop_processing_client_;
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr manage_processing_client_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr trigger_change_service_;
-  std_srvs::srv::Trigger::Request::SharedPtr trigger_request_ =
-    std::make_shared<std_srvs::srv::Trigger::Request>();
+  std_srvs::srv::SetBool::Request::SharedPtr setBool_request_ =
+    std::make_shared<std_srvs::srv::SetBool::Request>();
   rclcpp::callback_group::CallbackGroup::SharedPtr cbg_;
   rclcpp::QoS qos_;
   std::thread polling_thread_;

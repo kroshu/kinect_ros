@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef FILTER_POINTS__FILTERPOINTS_HPP_
-#define FILTER_POINTS__FILTERPOINTS_HPP_
+#ifndef MAP_ARM__MAPARM_HPP_
+#define MAP_ARM__MAPARM_HPP_
+
+#include <tf2_eigen/tf2_eigen.h>
 
 #include <cinttypes>
 #include <vector>
 #include <string>
 #include <map>
 #include <memory>
+#include <cmath>
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
@@ -29,27 +32,28 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "std_srvs/srv/set_bool.hpp"
-#include "filter_points/GeometryUtils.hpp"
+#include "map_arm/GeometryUtils.hpp"
 
-namespace filter_points
+
+namespace map_arm
 {
 
-class FilterPoints : public rclcpp::Node
+class MapArm : public rclcpp::Node
 {
 public:
-  FilterPoints(
-    const std::string & node_name,
-    const rclcpp::NodeOptions & options);
+  MapArm(const std::string & node_name, const rclcpp::NodeOptions & options);
 
 private:
   bool valid_;
-  geometry_msgs::msg::Pose pelvis_pose_, handtip_pose_, wrist_pose_, thumb_pose_, rel_pose_,
-    prev_rel_pose_, stop_pose_;
-  geometry_msgs::msg::Point orientation_x_, orientation_y_, orientation_z_, left_stop_;
+  std::vector<double> prev_joint_state_;
+  geometry_msgs::msg::Pose shoulder_pose_, elbow_pose, handtip_pose_,
+    wrist_pose_, thumb_pose_, rel_pose_, stop_pose_;
+  geometry_msgs::msg::Point orientation_x_, orientation_y_, orientation_z_,
+    left_stop_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr manage_processing_service_;
   rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr marker_listener_;
-  rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr goal_pos_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
   std_srvs::srv::Trigger::Request::SharedPtr trigger_request_ =
     std::make_shared<std_srvs::srv::Trigger::Request>();
   rclcpp::QoS qos_;
@@ -93,6 +97,6 @@ private:
   };
 };
 
-}  // namespace filter_points
+}  // namespace map_arm
 
-#endif  // FILTER_POINTS__FILTERPOINTS_HPP_
+#endif  // MAP_ARM__MAPARM_HPP_

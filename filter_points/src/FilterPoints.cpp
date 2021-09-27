@@ -34,16 +34,17 @@ FilterPoints::FilterPoints(
   goal_pos_publisher_ = this->create_publisher<geometry_msgs::msg::Pose>(
     "goal_pos", qos_);
 
-  auto stop_proc_callback = [this](
+  auto manage_proc_callback = [this](
     const std::shared_ptr<rmw_request_id_t> request_header,
-    std_srvs::srv::Trigger::Request::SharedPtr request,
-    std_srvs::srv::Trigger::Response::SharedPtr response) {
+    std_srvs::srv::SetBool::Request::SharedPtr request,
+    std_srvs::srv::SetBool::Response::SharedPtr response) {
       (void) request_header;
       response->success = true;
-      rclcpp::shutdown();
+      if(request->data) valid_=true;
+      else valid_=false;
     };
-  stop_processing_service_ = this->create_service<std_srvs::srv::Trigger>(
-    "filter_points/stop_processing", stop_proc_callback);
+  manage_processing_service_ = this->create_service<std_srvs::srv::SetBool>(
+    "manage_processing", manage_proc_callback);
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change");
 
@@ -54,6 +55,7 @@ FilterPoints::FilterPoints(
 void FilterPoints::markersReceivedCallback(
   visualization_msgs::msg::MarkerArray::SharedPtr msg)
 {
+	if (!valid_) return;
   auto handtip_it =
     std::find_if(
     msg->markers.begin(), msg->markers.end(),
@@ -138,12 +140,12 @@ void FilterPoints::markersReceivedCallback(
       auto delta = PoseDiff(rel_pose_.position, prev_rel_pose_.position);
       float delta_len = sqrt(
         delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
-      if (delta_len > 0.1) {
+      if (delta_len > 0.05) {
         goal_pos_publisher_->publish(rel_pose_);
         prev_rel_pose_ = rel_pose_;
-        RCLCPP_INFO(get_logger(), "x: %f", rel_pose_.position.x);
-        RCLCPP_INFO(get_logger(), "y: %f", rel_pose_.position.y);
-        RCLCPP_INFO(get_logger(), "z: %f", rel_pose_.position.z);
+        RCLCPP_DEBUG(get_logger(), "x: %f", rel_pose_.position.x);
+        RCLCPP_DEBUG(get_logger(), "y: %f", rel_pose_.position.y);
+        RCLCPP_DEBUG(get_logger(), "z: %f", rel_pose_.position.z);
       } else {
         RCLCPP_INFO(
           get_logger(), "Skipping frame, distance is only %f [cm]",
