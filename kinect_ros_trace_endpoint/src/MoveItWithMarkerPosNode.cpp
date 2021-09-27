@@ -14,8 +14,6 @@
 
 #include "kinect_ros_trace_endpoint/MoveItWithMarkerPosNode.hpp"
 
-#include <tf2_eigen/tf2_eigen.h>
-
 #include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <memory>
@@ -76,8 +74,6 @@ void MoveItWithMarkerPosNode::goalReceivedCallback(
   std::vector<double> seed_values;
   std::vector<double> solution;
 
-  // TODO(Svastits): maybe include this in the while loop?(may increase time considerably)
-  // is it the right position?
   auto state = moveit_cpp_->getCurrentState(0.1);
   for (auto & it : joint_names_) {
     seed_values.push_back(*state->getJointPositions(it));
@@ -120,7 +116,7 @@ void MoveItWithMarkerPosNode::goalReceivedCallback(
       best_ref_.position = solution;
     }
   }
-  RCLCPP_ERROR_STREAM(
+  RCLCPP_INFO_STREAM(
     get_logger(), "Best distance: " << best_dist_ << " after " << i << " iterations");
   sensor_msgs::msg::JointState reference;
   reference.position = best_ref_.position;

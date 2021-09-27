@@ -45,16 +45,17 @@ SystemManager::SystemManager(
   get_state_client_ =
     this->create_client<kuka_sunrise_interfaces::srv::GetState>(
     "robot_control/get_fri_state");
-  stop_processing_client_ = this->create_client<std_srvs::srv::Trigger>(
-    "filter_points/stop_processing");
+  manage_processing_client_ = this->create_client<std_srvs::srv::SetBool>(
+    "manage_processing");
   auto trigger_change_callback = [this](
     const std::shared_ptr<rmw_request_id_t> request_header,
     std_srvs::srv::Trigger::Request::SharedPtr request,
     std_srvs::srv::Trigger::Response::SharedPtr response) {
       (void) request_header;
       response->success = true;
-      stop_processing_client_->async_send_request(trigger_request_);
-      RCLCPP_WARN(get_logger(), "Motion stoped externally, deactivating controls and managers");
+      setBool_request_->data=false;
+      manage_processing_client_->async_send_request(setBool_request_);
+      RCLCPP_WARN(get_logger(), "Motion stopped externally, deactivating controls and managers");
       this->deactivate();
     };
   trigger_change_service_ = this->create_service<std_srvs::srv::Trigger>(
@@ -122,6 +123,8 @@ SystemManager::on_activate(const rclcpp_lifecycle::State & state)
   }
   polling_thread_ = std::thread(&SystemManager::MonitoringLoop, this);
   robot_control_active_ = true;
+  setBool_request_->data=true;
+  manage_processing_client_->async_send_request(setBool_request_);
   return SUCCESS;
 }
 
@@ -257,7 +260,8 @@ void SystemManager::GetFRIState()
       if (lbr_state_ != 4 && !stop_) {
         stop_ = true;
       } else if (lbr_state_ != 4 && stop_) {
-        stop_processing_client_->async_send_request(trigger_request_);
+    	  setBool_request_->data=false;
+        manage_processing_client_->async_send_request(setBool_request_);
       } else {
         stop_ = false;
       }
