@@ -20,7 +20,7 @@
 #include <vector>
 
 
-namespace map_arm
+namespace filter_points
 {
 
 MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & options)
@@ -229,7 +229,7 @@ void MapArm::markersReceivedCallback(
     change_state_client_->async_send_request(trigger_request_);
   }
 }
-}  // namespace map_arm
+}  // namespace filter_points
 
 int main(int argc, char * argv[])
 {
@@ -237,7 +237,7 @@ int main(int argc, char * argv[])
   rclcpp::init(argc, argv);
 
   rclcpp::executors::MultiThreadedExecutor executor;
-  auto node = std::make_shared<map_arm::MapArm>(
+  auto node = std::make_shared<filter_points::MapArm>(
     "map_arm",
     rclcpp::NodeOptions());
   executor.add_node(node->get_node_base_interface());

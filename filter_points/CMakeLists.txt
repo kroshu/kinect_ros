@@ -15,7 +15,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-include_directories(include ../../kuka_sunrise/include)
+include_directories(include)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -33,8 +33,26 @@ add_executable(filter_points src/FilterPoints.cpp)
 ament_target_dependencies(filter_points rclcpp rclcpp_lifecycle visualization_msgs std_srvs)
 target_link_libraries(filter_points utils)
 
-install(TARGETS filter_points utils
-  DESTINATION lib/${PROJECT_NAME})
+install(TARGETS filter_points
+    DESTINATION lib/${PROJECT_NAME})
+
+ament_export_targets(utils HAS_LIBRARY_TARGET)
+ament_export_dependencies(rclcpp)
+
+install(
+  DIRECTORY include/utils
+  DESTINATION include/utils
+)
+
+install(
+  TARGETS utils
+  EXPORT utils
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
+)
+
 
 if(BUILD_TESTING)
   find_package(ament_cmake_copyright REQUIRED)

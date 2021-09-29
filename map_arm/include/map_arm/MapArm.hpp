@@ -32,10 +32,10 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "std_srvs/srv/set_bool.hpp"
-#include "map_arm/GeometryUtils.hpp"
+#include "utils/GeometryUtils.hpp"
 
 
-namespace map_arm
+namespace filter_points
 {
 
 class MapArm : public rclcpp::Node
@@ -97,6 +97,6 @@ private:
   };
 };
 
-}  // namespace map_arm
+}  // namespace filter_points
 
 #endif  // MAP_ARM__MAPARM_HPP_
