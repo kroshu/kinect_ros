@@ -15,7 +15,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-include_directories(include)
+include_directories(include ../filter_points/include)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -25,16 +25,15 @@ find_package(visualization_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
+find_package(filter_points REQUIRED)
 
-add_library(utils SHARED
-  src/GeometryUtils.cpp)
-ament_target_dependencies(utils rclcpp)
+
 
 add_executable(map_arm src/MapArm.cpp)
 ament_target_dependencies(map_arm rclcpp rclcpp_lifecycle visualization_msgs std_srvs sensor_msgs moveit_ros_planning_interface)
-target_link_libraries(map_arm utils)
+target_link_libraries(map_arm filter_points::utils)
 
-install(TARGETS map_arm utils
+install(TARGETS map_arm 
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

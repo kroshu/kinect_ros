@@ -29,7 +29,7 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "std_srvs/srv/set_bool.hpp"
-#include "filter_points/GeometryUtils.hpp"
+#include "utils/GeometryUtils.hpp"
 
 namespace filter_points
 {
