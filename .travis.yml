@@ -26,6 +26,7 @@ env:
   global: # global settings for all jobs
     - ROS_REPO=main
     - CCACHE_DIR=$HOME/.ccache # enables C/C++ caching in industrial_ci
+    - UPSTREAM_WORKSPACE='github:kroshu/kroshu_ros2_core#master'
     - BUILDER='colcon'
     - SONARQUBE='true'
     - TEST_COVERAGE='true'
