@@ -27,6 +27,7 @@ env:
     - ROS_REPO=main
     - CCACHE_DIR=$HOME/.ccache # enables C/C++ caching in industrial_ci
     - BUILDER='colcon'
+    - UPSTREAM_WORKSPACE='github:kroshu/kroshu_ros2_core#master'
     - SONARQUBE='true'
     - TEST_COVERAGE='true'
   matrix: # each line is a job
