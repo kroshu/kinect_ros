@@ -33,7 +33,7 @@ add_executable(map_arm src/MapArm.cpp)
 ament_target_dependencies(map_arm rclcpp rclcpp_lifecycle visualization_msgs std_srvs sensor_msgs moveit_ros_planning_interface)
 target_link_libraries(map_arm filter_points::utils)
 
-install(TARGETS map_arm 
+install(TARGETS map_arm
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

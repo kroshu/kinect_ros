@@ -151,7 +151,6 @@ void MapArm::markersReceivedCallback(
     Eigen::Vector3f global_pos(wrist_rel_pos.x, wrist_rel_pos.y, wrist_rel_pos.z);
     Eigen::Vector3f e_rel_pos = rot * global_pos;
 
-
     if (abs(e_rel_pos[0]) > 0.03 || abs(e_rel_pos[0]) > 0.03) {
       joint_state[2] = atan2(-e_rel_pos[1], -e_rel_pos[0]);
     } else {
