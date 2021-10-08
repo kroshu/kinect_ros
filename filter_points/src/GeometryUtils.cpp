@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include <memory>
-#include "filter_points/GeometryUtils.hpp"
+#include "utils/GeometryUtils.hpp"
 
 namespace filter_points
 {

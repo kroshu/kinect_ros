@@ -28,7 +28,8 @@
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "std_srvs/srv/trigger.hpp"
-#include "filter_points/GeometryUtils.hpp"
+#include "std_srvs/srv/set_bool.hpp"
+#include "utils/GeometryUtils.hpp"
 
 namespace filter_points
 {
@@ -41,11 +42,12 @@ public:
     const rclcpp::NodeOptions & options);
 
 private:
+  bool valid_;
   geometry_msgs::msg::Pose pelvis_pose_, handtip_pose_, wrist_pose_, thumb_pose_, rel_pose_,
     prev_rel_pose_, stop_pose_;
   geometry_msgs::msg::Point orientation_x_, orientation_y_, orientation_z_, left_stop_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_processing_service_;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr manage_processing_service_;
   rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr marker_listener_;
   rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr goal_pos_publisher_;
   std_srvs::srv::Trigger::Request::SharedPtr trigger_request_ =

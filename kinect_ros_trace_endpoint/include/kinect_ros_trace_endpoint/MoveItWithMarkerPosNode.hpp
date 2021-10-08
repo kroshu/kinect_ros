@@ -20,6 +20,8 @@
 #include <moveit/robot_state/conversions.h>
 #include <moveit/kdl_kinematics_plugin/kdl_kinematics_plugin.h>
 
+#include <tf2_eigen/tf2_eigen.h>
+
 #include <rclcpp/rclcpp.hpp>
 #include <moveit_msgs/msg/display_robot_state.hpp>
 #include <trajectory_msgs/msg/joint_trajectory.hpp>
