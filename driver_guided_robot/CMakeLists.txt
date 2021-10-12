@@ -24,12 +24,13 @@ find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(kuka_sunrise_interfaces REQUIRED)
+find_package(kuka_sunrise REQUIRED)
 
 include_directories(include)
 
 add_executable(system_manager
     src/control_system/system_manager.cpp)
-ament_target_dependencies(system_manager rclcpp rclcpp_lifecycle std_msgs std_srvs kuka_sunrise_interfaces)
+ament_target_dependencies(system_manager rclcpp rclcpp_lifecycle std_msgs std_srvs kuka_sunrise_interfaces kuka_sunrise)
 
 install(TARGETS system_manager
     DESTINATION lib/${PROJECT_NAME})
@@ -38,14 +39,23 @@ install(DIRECTORY launch
     DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # uncomment the line when a copyright and license is not present in all source files
-  #set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # uncomment the line when this package is not in a git repo
-  #set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
+  find_package(ament_cmake_copyright REQUIRED)
+  find_package(ament_cmake_cppcheck REQUIRED)
+  find_package(ament_cmake_pep257 REQUIRED)
+  find_package(ament_cmake_flake8 REQUIRED)
+  find_package(ament_cmake_cpplint REQUIRED)
+  find_package(ament_cmake_lint_cmake REQUIRED)
+  find_package(ament_cmake_uncrustify REQUIRED)
+  find_package(ament_cmake_xmllint REQUIRED)
+
+  ament_copyright()
+  ament_cppcheck(--language=c++)
+  ament_pep257()
+  ament_flake8()
+  ament_cpplint()
+  ament_lint_cmake()
+  ament_uncrustify()
+  ament_xmllint()
 endif()
 
 ament_package()
