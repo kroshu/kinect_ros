@@ -4,8 +4,8 @@
   <name>driver_guided_robot</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="resizoltan@gmail.com">rosdeveloper</maintainer>
-  <license>BSD</license>
+  <maintainer email="svastits1@gmail.com">Aron Svastits</maintainer>
+  <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
