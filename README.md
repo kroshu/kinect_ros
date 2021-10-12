@@ -3,7 +3,7 @@
 
 Travis CI | SonarCloud
 ------------| ---------------
-[![Build Status](https://travis-ci.com/kroshu/kinect_ros.svg?branch=master)](https://travis-ci.com/kroshu/kinect_ros) | [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kroshu_kinect_ros&metric=alert_status)](https://sonarcloud.io/dashboard?id=kroshu_kinect_ros)
+[![Build Status](https://api.travis-ci.com/kroshu/kinect_ros.svg?branch=main)](https://app.travis-ci.com/github/kroshu/kinect_ros) | [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kroshu_kinect_ros&metric=alert_status)](https://sonarcloud.io/dashboard?id=kroshu_kinect_ros)
 
 ### Prerequsites:
 - Visual Studio (for colcon build)
