@@ -31,6 +31,7 @@ env:
     - BUILDER='colcon'
     - SONARQUBE='true'
     - TEST_COVERAGE='true'
+    - CMAKE_ARGS='-DMOCK_FRI=ON'
   matrix: # each line is a job
     - ROS_DISTRO='foxy'
 
