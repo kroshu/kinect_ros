@@ -8,8 +8,9 @@ os:
   - linux
 branches:
   only:
-  - master
+  - main
   - /^feature\/.*$/
+  - /^fix\/.*$/
 
 # include the following block if the C/C++ build artifacts should get cached by Travis,
 # CCACHE_DIR needs to get set as well to actually fill the cache
@@ -26,10 +27,11 @@ env:
   global: # global settings for all jobs
     - ROS_REPO=main
     - CCACHE_DIR=$HOME/.ccache # enables C/C++ caching in industrial_ci
-    - UPSTREAM_WORKSPACE='github:kroshu/kroshu_ros2_core#master'
+    - UPSTREAM_WORKSPACE='github:kroshu/kroshu_ros2_core#master github:kroshu/robot_control#main github:kroshu/ros2_kuka_sunrise#master github:kroshu/ros2_kuka_sunrise_interfaces#master'
     - BUILDER='colcon'
     - SONARQUBE='true'
     - TEST_COVERAGE='true'
+    - CMAKE_ARGS='-DMOCK_FRI=ON'
   matrix: # each line is a job
     - ROS_DISTRO='foxy'
 

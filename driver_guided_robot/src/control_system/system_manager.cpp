@@ -17,7 +17,7 @@
 #include <thread>
 
 #include "control_system/system_manager.hpp"
-#include "internal/service_tools.hpp"
+#include "kuka_sunrise/kuka_sunrise/internal/service_tools.hpp"
 
 namespace driver_guided_robot
 {

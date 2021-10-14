@@ -4,8 +4,8 @@
   <name>kinect_ros_trace_endpoint</name>
   <version>0.0.0</version>
   <description>ROS package for Azure Kinect DK motion tracking with endpoint tracing</description>
-  <maintainer email="kovacsge.work@gmail.com">Gergely Kovacs</maintainer>
-  <license>BSD</license>
+  <maintainer email="svastits1@gmail.com">Aron Svastits</maintainer>
+  <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <build_depend>moveit_common</build_depend>

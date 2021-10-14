@@ -1,6 +1,10 @@
 # kinect_ros (Arm tracking with Azure Kinect and LBR iiwa)
 ## The Azure Kinect driver node
 
+Travis CI | SonarCloud
+------------| ---------------
+[![Build Status](https://api.travis-ci.com/kroshu/kinect_ros.svg?branch=main)](https://app.travis-ci.com/github/kroshu/kinect_ros) | [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kroshu_kinect_ros&metric=alert_status)](https://sonarcloud.io/dashboard?id=kroshu_kinect_ros)
+
 ### Prerequsites:
 - Visual Studio (for colcon build)
 - OpenCV (I downloaded the exe for version 3.4.4 from https://github.com/opencv/opencv/releases/tag/3.4.4)
