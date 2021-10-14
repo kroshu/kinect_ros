@@ -15,7 +15,13 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-include_directories(include ../filter_points/include)
+
+get_filename_component(PARENT_DIR ${filter_points_DIR} DIRECTORY)
+get_filename_component(PARENT_DIR ${PARENT_DIR} DIRECTORY)
+get_filename_component(filter_point_INCLUDES ${PARENT_DIR} DIRECTORY)
+
+
+include_directories(include ${filter_point_INCLUDES}/include)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
