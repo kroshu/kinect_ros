@@ -41,7 +41,7 @@ ament_export_dependencies(rclcpp)
 
 install(
   DIRECTORY include/utils
-  DESTINATION include/utils
+  DESTINATION include
 )
 
 install(
