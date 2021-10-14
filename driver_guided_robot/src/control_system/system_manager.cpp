@@ -219,7 +219,7 @@ bool SystemManager::changeState(
     return false;
   }
   auto future_result = client->async_send_request(request);
-  auto future_status = wait_for_result(
+  auto future_status = kuka_sunrise::wait_for_result(
     future_result,
     std::chrono::milliseconds(3000));
   if (future_status != std::future_status::ready) {
@@ -284,7 +284,7 @@ bool SystemManager::changeRobotCommandingState(bool is_active)
   }
   auto future_result =
     change_robot_commanding_state_client_->async_send_request(request);
-  auto future_status = wait_for_result(
+  auto future_status = kuka_sunrise::wait_for_result(
     future_result,
     std::chrono::milliseconds(3000));
   if (future_status != std::future_status::ready) {
