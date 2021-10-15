@@ -24,7 +24,8 @@ FilterPoints::FilterPoints(
   const rclcpp::NodeOptions & options)
 : rclcpp::Node(node_name, options), qos_(rclcpp::KeepLast(1))
 {
-  auto callback = [this](visualization_msgs::msg::MarkerArray::SharedPtr msg) {
+  auto callback = [this](
+    visualization_msgs::msg::MarkerArray::SharedPtr msg) {
       this->markersReceivedCallback(msg);
     };
   marker_listener_ = this->create_subscription<
@@ -40,22 +41,27 @@ FilterPoints::FilterPoints(
     std_srvs::srv::SetBool::Response::SharedPtr response) {
       (void) request_header;
       response->success = true;
-      if(request->data) valid_=true;
-      else valid_=false;
+      if (request->data) {
+        valid_ = true;
+      } else {
+        valid_ = false;
+      }
     };
   manage_processing_service_ = this->create_service<std_srvs::srv::SetBool>(
     "manage_processing", manage_proc_callback);
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change");
-
   prev_rel_pose_.position.x = prev_rel_pose_.position.y =
     prev_rel_pose_.position.z = 0;
+  valid_ = true;
 }
 
 void FilterPoints::markersReceivedCallback(
   visualization_msgs::msg::MarkerArray::SharedPtr msg)
 {
-	if (!valid_) return;
+  if (!valid_) {
+    return;
+  }
   auto handtip_it =
     std::find_if(
     msg->markers.begin(), msg->markers.end(),
@@ -69,21 +75,24 @@ void FilterPoints::markersReceivedCallback(
     msg->markers.begin(), msg->markers.end(),
     [](const visualization_msgs::msg::Marker & marker) {
       int joint_id = marker.id % 100;
-      return joint_id == static_cast<int>(BODY_TRACKING_JOINTS::PELVIS);
+      return joint_id ==
+      static_cast<int>(BODY_TRACKING_JOINTS::PELVIS);
     });
 
   auto wrist_it = std::find_if(
     msg->markers.begin(), msg->markers.end(),
     [](const visualization_msgs::msg::Marker & marker) {
       int joint_id = marker.id % 100;
-      return joint_id == static_cast<int>(BODY_TRACKING_JOINTS::WRIST_RIGHT);
+      return joint_id ==
+      static_cast<int>(BODY_TRACKING_JOINTS::WRIST_RIGHT);
     });
 
   auto thumb_it = std::find_if(
     msg->markers.begin(), msg->markers.end(),
     [](const visualization_msgs::msg::Marker & marker) {
       int joint_id = marker.id % 100;
-      return joint_id == static_cast<int>(BODY_TRACKING_JOINTS::THUMB_RIGHT);
+      return joint_id ==
+      static_cast<int>(BODY_TRACKING_JOINTS::THUMB_RIGHT);
     });
 
   auto second_it = std::find_if(
@@ -97,7 +106,8 @@ void FilterPoints::markersReceivedCallback(
     msg->markers.begin(), msg->markers.end(),
     [](const visualization_msgs::msg::Marker & marker) {
       int joint_id = marker.id % 100;
-      return joint_id == static_cast<int>(BODY_TRACKING_JOINTS::HANDTIP_LEFT);
+      return joint_id ==
+      static_cast<int>(BODY_TRACKING_JOINTS::HANDTIP_LEFT);
     });
 
   if (second_it != msg->markers.end()) {
@@ -117,8 +127,12 @@ void FilterPoints::markersReceivedCallback(
       rel_pose_.position = PoseDiff(
         handtip_pose_.position,
         pelvis_pose_.position);
-      orientation_z_ = PoseDiff(handtip_pose_.position, wrist_pose_.position);
-      orientation_y_ = PoseDiff(thumb_pose_.position, wrist_pose_.position);
+      orientation_z_ = PoseDiff(
+        handtip_pose_.position,
+        wrist_pose_.position);
+      orientation_y_ = PoseDiff(
+        thumb_pose_.position,
+        wrist_pose_.position);
       orientation_x_ = CrossProduct(orientation_y_, orientation_z_);
       orientation_y_ = CrossProduct(orientation_z_, orientation_x_);
       rel_pose_.orientation = ToQuaternion(
@@ -127,7 +141,9 @@ void FilterPoints::markersReceivedCallback(
 
       if (stop_it != msg->markers.end()) {
         stop_pose_ = stop_it->pose;
-        left_stop_ = PoseDiff(stop_pose_.position, pelvis_pose_.position);
+        left_stop_ = PoseDiff(
+          stop_pose_.position,
+          pelvis_pose_.position);
         if (left_stop_.z > 0.6) {
           RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
           change_state_client_->async_send_request(trigger_request_);
@@ -148,15 +164,18 @@ void FilterPoints::markersReceivedCallback(
         RCLCPP_DEBUG(get_logger(), "z: %f", rel_pose_.position.z);
       } else {
         RCLCPP_INFO(
-          get_logger(), "Skipping frame, distance is only %f [cm]",
-          delta_len);
+          get_logger(),
+          "Skipping frame, distance is only %f [cm]",
+          delta_len * 100);
       }
     } else {
       RCLCPP_WARN(get_logger(), "Pelvis joint not found, skipping frame");
       change_state_client_->async_send_request(trigger_request_);
     }
   } else {
-    RCLCPP_WARN(get_logger(), "Right handtip joint not found, skipping frame");
+    RCLCPP_WARN(
+      get_logger(),
+      "Right handtip joint not found, skipping frame");
     change_state_client_->async_send_request(trigger_request_);
   }
 }

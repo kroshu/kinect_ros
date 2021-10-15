@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef FILTER_POINTS__GEOMETRYUTILS_HPP_
-#define FILTER_POINTS__GEOMETRYUTILS_HPP_
+#ifndef UTILS__GEOMETRYUTILS_HPP_
+#define UTILS__GEOMETRYUTILS_HPP_
 
 #include <cinttypes>
 #include <vector>
@@ -58,4 +58,4 @@ geometry_msgs::msg::Quaternion ToQuaternion(
 
 }  // namespace filter_points
 
-#endif  // FILTER_POINTS__GEOMETRYUTILS_HPP_
+#endif  // UTILS__GEOMETRYUTILS_HPP_

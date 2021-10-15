@@ -18,9 +18,8 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 
 from launch.actions.include_launch_description import IncludeLaunchDescription
-from launch.launch_description_sources.python_launch_description_source import PythonLaunchDescriptionSource
+from launch.launch_description_sources.python_launch_description_source import PythonLaunchDescriptionSource  # noqa: E501
 import launch_ros.actions
-from launch_ros.actions import Node
 import yaml
 
 
@@ -69,7 +68,6 @@ def generate_launch_description():
         package='driver_guided_robot', executable='system_manager', output='screen',
         name='system_manager'
         )
-
 
     return LaunchDescription([
         kuka_sunrise_interface,

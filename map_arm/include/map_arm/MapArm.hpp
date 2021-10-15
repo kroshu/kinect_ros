@@ -46,8 +46,8 @@ public:
 private:
   bool valid_;
   std::vector<double> prev_joint_state_;
-  geometry_msgs::msg::Pose shoulder_pose_, elbow_pose, handtip_pose_,
-    wrist_pose_, thumb_pose_, rel_pose_, stop_pose_;
+  std::vector<int64_t> moving_avg_depth_;  // int is not supported for vectors, only uint8_t or long
+  geometry_msgs::msg::Pose shoulder_pose_, rel_pose_, stop_pose_, prev_rel_pose_;
   geometry_msgs::msg::Point orientation_x_, orientation_y_, orientation_z_,
     left_stop_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
