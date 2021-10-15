@@ -223,13 +223,3 @@ Although moveit is a very powerful package with countless options, it does not s
 A few ports must also be enabled in firewall settings to let the messages through. By the domain ID of 0, I enabled ports 7410-7425 in both directions. (According to the documentation the exact port number is 7400 + 250 * domainID + 10 + 2 * participantID)
 To try out the connection the demo nodes talker and listener are recommended.
 The camera driver node publishes messages on the *body_tracking_data* topic, each message a MarkerArray consisting of 31 markers, one for each joint position.
-
-## The kuka_sunrise driver node
-
-The driver connects the Sunrise Fast Robot Interface with ROS (see details in Zoli's thesis). To start the simulation an Office PC is needed, while the ROS nodes should be run on a Linux machine. The Sunrise Workbench application is needed to configure the simulation (install, synchronize and set T1 in OfficeMode), but is only for visualisation purposes during the simulation.
-
-### Launching the driver nodes: 
-
-The kinect_driver_only.launch.py file (in package kinect_ros -> driver_guided_robot) starts the 3 lifecycle nodes for the driver (robot_control, robot_manger, system_manager) and the joint_controller node. (Additionally, the moveit_with_markerpos node is also started, which is to be connected to a node publishing position and orientations, but is not publishing anything if no other node is started.)
-On the Office PC, the HMI must be connected to the ROS2_Control application, then the motion should be started. 
-Configuring and activating the system_manager (*ros2 lifecycle set /system_manager configure*)  will also activate the other lifecycle nodes, the client state 4 indicates in  the terminal, that the FRI waits for commmands. Jogging is possible by clicking the start motion button again (pasusing the motion), this way the connection to the driver nodes can be tested.
