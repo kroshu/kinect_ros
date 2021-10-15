@@ -219,7 +219,3 @@ By the construction of the structure, modularity was a key aspect, so the nodes 
 ## Conclusions
 
 Although moveit is a very powerful package with countless options, it does not seem to provide the required functions for a body tracking. The main shortcoming is that it is not deterministic, which can cause big leaps in the joint values at specific points in the workspace. The human arm could be mapped on the robot arm joint by joint almost perfectly, so the required joint positions could be calculated with relatively simple inverse kinematics equations. For another type of robot, where the mapping is not so straigthforward, and the inverse kinematics calculations are not possible without a plugin, setting much stricter limits to the joint values could improve the problems of moveit.
-
-A few ports must also be enabled in firewall settings to let the messages through. By the domain ID of 0, I enabled ports 7410-7425 in both directions. (According to the documentation the exact port number is 7400 + 250 * domainID + 10 + 2 * participantID)
-To try out the connection the demo nodes talker and listener are recommended.
-The camera driver node publishes messages on the *body_tracking_data* topic, each message a MarkerArray consisting of 31 markers, one for each joint position.
