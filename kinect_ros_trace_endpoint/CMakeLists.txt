@@ -31,7 +31,7 @@ ament_target_dependencies(moveit_with_markerpos
   rclcpp
   geometry_msgs
   visualization_msgs
-  control_msgs  
+  control_msgs
   moveit_kinematics
 )
 

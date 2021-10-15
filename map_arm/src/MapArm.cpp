@@ -24,7 +24,8 @@ namespace filter_points
 {
 
 MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & options)
-: rclcpp::Node(node_name, options), valid_(true), prev_joint_state_(7), qos_(rclcpp::KeepLast(1))
+: rclcpp::Node(node_name, options), valid_(true), prev_joint_state_(7), moving_avg_depth_(
+    7), qos_(rclcpp::KeepLast(1))
 {
   auto callback = [this](
     visualization_msgs::msg::MarkerArray::SharedPtr msg) {
@@ -49,7 +50,15 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
     "manage_processing", manage_proc_callback);
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change");
+
+  prev_rel_pose_.position.x = prev_rel_pose_.position.y =
+    prev_rel_pose_.position.z = 0;
+
+  this->declare_parameter(
+    "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
+      2, 2, 0});
 }
+
 
 void MapArm::markersReceivedCallback(
   visualization_msgs::msg::MarkerArray::SharedPtr msg)
@@ -57,6 +66,12 @@ void MapArm::markersReceivedCallback(
   if (!valid_) {
     return;
   }
+
+  this->get_parameter("moving_avg_depth", moving_avg_depth_);
+  // TODO(Svastits): do this with param change callback
+  // TODO(Svastits): check param validity (no negative numbers)
+
+  // Getting the required joint positions
   auto handtip_it =
     std::find_if(
     msg->markers.begin(), msg->markers.end(),
@@ -115,6 +130,8 @@ void MapArm::markersReceivedCallback(
       static_cast<int>(BODY_TRACKING_JOINTS::HANDTIP_LEFT);
     });
 
+
+  // Invalidate, if more than 1 person can be seen
   if (msg->markers.size() > 32) {
     RCLCPP_WARN(get_logger(), "More bodies in view, invalidating commands");
     // change_state_client_->async_send_request(trigger_request_);
@@ -129,6 +146,12 @@ void MapArm::markersReceivedCallback(
   {
     sensor_msgs::msg::JointState reference;
     std::vector<double> joint_state(7);
+
+
+    // Calculate joints 1 and 2
+    rel_pose_.position = PoseDiff(
+      handtip_it->pose.position,
+      shoulder_it->pose.position);
     auto elbow_rel_pos = PoseDiff(
       elbow_it->pose.position,
       shoulder_it->pose.position);
@@ -141,6 +164,14 @@ void MapArm::markersReceivedCallback(
       sqrt(pow(elbow_rel_pos.x, 2) + pow(elbow_rel_pos.y, 2)),
       elbow_rel_pos.z);
 
+    // Moving average
+    for (int i = 0; i < 2; i++) {
+      int factor = moving_avg_depth_[i] + 1;
+      joint_state[i] = joint_state[i] / factor +
+        prev_joint_state_[i] * (factor - 1) / factor;
+    }
+
+    // Calculate joints 3 and 4
     auto wrist_rel_pos = PoseDiff(
       wrist_it->pose.position,
       elbow_it->pose.position);
@@ -160,7 +191,13 @@ void MapArm::markersReceivedCallback(
       sqrt(pow(e_rel_pos[0], 2) + pow(e_rel_pos[1], 2)),
       e_rel_pos[2]);
 
+    for (int i = 2; i < 4; i++) {
+      int factor = moving_avg_depth_[i] + 1;
+      joint_state[i] = joint_state[i] / factor +
+        prev_joint_state_[i] * (factor - 1) / factor;
+    }
 
+    // Calculate joints 5 and 6
     auto handtip_rel_pos = PoseDiff(
       handtip_it->pose.position,
       wrist_it->pose.position);
@@ -204,11 +241,21 @@ void MapArm::markersReceivedCallback(
       }
     }
 
+    for (int i = 4; i < 6; i++) {
+      int factor = moving_avg_depth_[i] + 1;
+      joint_state[i] = joint_state[i] / factor +
+        prev_joint_state_[i] * (factor - 1) / factor;
+    }
+
+    // Joint 7 is constant, as it would need thumb position, which is inaccurate
     joint_state[6] = 0;
+    reference.position = joint_state;
+
+    // Stop if left hand is raised
     if (stop_it != msg->markers.end()) {
       stop_pose_ = stop_it->pose;
       left_stop_ = PoseDiff(stop_pose_.position, shoulder_pose_.position);
-      if (left_stop_.z > 0.6) {
+      if (left_stop_.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
         change_state_client_->async_send_request(trigger_request_);
       }
@@ -218,8 +265,21 @@ void MapArm::markersReceivedCallback(
         "Left handtip joint not found, stopping not possible that way");
     }
 
-    reference.position = joint_state;
-    if (valid_) {reference_publisher_->publish(reference);}
+    // If cartesian distance is small, do not send new commands
+    auto delta = PoseDiff(rel_pose_.position, prev_rel_pose_.position);
+    float delta_len = sqrt(
+      delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+
+    if (valid_) {
+      if (delta_len > 0.04) {
+        prev_rel_pose_ = rel_pose_;
+        reference_publisher_->publish(reference);
+      } else {
+        RCLCPP_INFO(
+          get_logger(),
+          "Skipping frame, distance is only %f [cm]", delta_len * 100);
+      }
+    }
     prev_joint_state_ = joint_state;
   } else {
     RCLCPP_WARN(
