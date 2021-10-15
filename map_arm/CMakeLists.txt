@@ -15,14 +15,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-
-get_filename_component(PARENT_DIR ${filter_points_DIR} DIRECTORY)
-get_filename_component(PARENT_DIR ${PARENT_DIR} DIRECTORY)
-get_filename_component(filter_point_INCLUDES ${PARENT_DIR} DIRECTORY)
-
-
-include_directories(include ${filter_point_INCLUDES}/include)
-
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -33,7 +25,12 @@ find_package(std_srvs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(filter_points REQUIRED)
 
+get_filename_component(PARENT_DIR ${filter_points_DIR} DIRECTORY)
+get_filename_component(PARENT_DIR ${PARENT_DIR} DIRECTORY)
+get_filename_component(filter_point_INCLUDES ${PARENT_DIR} DIRECTORY)
 
+
+include_directories(include ${filter_point_INCLUDES}/include)
 
 add_executable(map_arm src/MapArm.cpp)
 ament_target_dependencies(map_arm rclcpp rclcpp_lifecycle visualization_msgs std_srvs sensor_msgs moveit_ros_planning_interface)
