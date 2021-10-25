@@ -63,9 +63,12 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
 void MapArm::markersReceivedCallback(
   visualization_msgs::msg::MarkerArray::SharedPtr msg)
 {
-  if (!valid_) {
+  // Invalidate, if more than 1 person can be seen
+  if (msg->markers.size() > 32) {
+    RCLCPP_WARN(get_logger(), "More bodies in view, invalidating commands");
     return;
   }
+  if (!valid_) {return;}
 
   this->get_parameter("moving_avg_depth", moving_avg_depth_);
   // TODO(Svastits): do this with param change callback
@@ -129,14 +132,6 @@ void MapArm::markersReceivedCallback(
       return joint_id ==
       static_cast<int>(BODY_TRACKING_JOINTS::HANDTIP_LEFT);
     });
-
-
-  // Invalidate, if more than 1 person can be seen
-  if (msg->markers.size() > 32) {
-    RCLCPP_WARN(get_logger(), "More bodies in view, invalidating commands");
-    // change_state_client_->async_send_request(trigger_request_);
-    valid_ = false;
-  } else {valid_ = true;}
 
   if (handtip_it != msg->markers.end() && thumb_it != msg->markers.end() &&
     wrist_it != msg->markers.end() &&
@@ -270,15 +265,13 @@ void MapArm::markersReceivedCallback(
     float delta_len = sqrt(
       delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 
-    if (valid_) {
-      if (delta_len > 0.04) {
-        prev_rel_pose_ = rel_pose_;
-        reference_publisher_->publish(reference);
-      } else {
-        RCLCPP_INFO(
-          get_logger(),
-          "Skipping frame, distance is only %f [cm]", delta_len * 100);
-      }
+    if (delta_len > 0.04) {
+      prev_rel_pose_ = rel_pose_;
+      reference_publisher_->publish(reference);
+    } else {
+      RCLCPP_INFO(
+        get_logger(), "Skipping frame, distance is only %f [cm]",
+        delta_len * 100);
     }
     prev_joint_state_ = joint_state;
   } else {
@@ -292,7 +285,7 @@ void MapArm::markersReceivedCallback(
 
 int main(int argc, char * argv[])
 {
-  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+  setvbuf(stdout, nullptr, _IONBF, BUFSIZ);
   rclcpp::init(argc, argv);
 
   rclcpp::executors::MultiThreadedExecutor executor;

@@ -25,7 +25,7 @@ Travis CI | SonarCloud
     - ros2_kuka_sunrise (kroshu)
     - kinect_ros (kroshu)
     - urdflbriiwa14
-    - robot_control    
+    - robot_control
 
 ### Running the node
 After building (colcon build in VS terminal) the node can be run with the 'ros2 run azure_kinect_ros_driver node --ros-args -p body_tracking_enabled:=true' command in a sourced terminal. (Or as a small cheat the default value of the parameter "body_tracking_enabled" can be changed to true in the k4a_ros_device_params.h header, so that the 'ros2 run azure_kinect_ros_driver node' command starts the bodytracking too.)

@@ -183,7 +183,7 @@ void FilterPoints::markersReceivedCallback(
 
 int main(int argc, char * argv[])
 {
-  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+  setvbuf(stdout, nullptr, _IONBF, BUFSIZ);
   rclcpp::init(argc, argv);
 
   rclcpp::executors::MultiThreadedExecutor executor;
