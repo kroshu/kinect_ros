@@ -194,11 +194,11 @@ The mapping can be described mathematically with the following formulas:
 
 By joint 6 the sign of the relative positions must be considered, and to assure continuous joint values without leaps, two cases should be considered:
 
-If $\lvert$&Delta;x $\rvert$ $\lt$ $\lvert$&Delta;y $\lvert$:
+![](https://latex.codecogs.com/svg.latex?&space;\lvert\Delta{}x\rvert<\lvert\Delta{}y\lvert:)
 
 ![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_6=\mathrm{sgn}(y)*\mathrm{atan2}\(\Delta{}z_{wrist},\sqrt{\Delta{}x_{wrist}^2+\Delta{}y_{wrist}^2}\))
 
-If $\lvert$&Delta;x $\rvert$ $\ge$  $\lvert$&Delta;y $\lvert$:
+![](https://latex.codecogs.com/svg.latex?&space;\lvert\Delta{}x\rvert\ge\lvert\Delta{}y\lvert:)
 
 ![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_6=\mathrm{sgn}(x)*\mathrm{atan2}\(\Delta{}z_{wrist},\sqrt{\Delta{}x_{wrist}^2+\Delta{}y_{wrist}^2}\))
 
