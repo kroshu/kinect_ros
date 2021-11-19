@@ -256,7 +256,6 @@ void SystemManager::GetFRIState()
 
       // Two consecutive non-four states are needed for shutdown
       // to avoid unnecessary stops
-      // TODO(Svastits): is this still necessary in the new setup?
       if (lbr_state_ != 4 && !stop_) {
         stop_ = true;
       } else if (lbr_state_ != 4 && stop_) {

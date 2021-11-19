@@ -24,6 +24,7 @@ find_package(lifecycle_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(kroshu_ros2_core REQUIRED)
 find_package(moveit_kinematics)
+find_package(sensor_msgs)
 
 add_executable(moveit_with_markerpos src/MoveItWithMarkerPosNode.cpp)
 ament_target_dependencies(moveit_with_markerpos
@@ -38,6 +39,7 @@ ament_target_dependencies(moveit_with_markerpos
 add_executable(marker_publisher src/MarkerPublisher.cpp)
 ament_target_dependencies(marker_publisher
   visualization_msgs
+  sensor_msgs
   rclcpp
   rclcpp_lifecycle
   lifecycle_msgs

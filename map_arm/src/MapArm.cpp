@@ -56,20 +56,19 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
 
   this->declare_parameter(
     "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
-      2, 2, 0});
+      4, 4, 0});
 }
 
 
 void MapArm::markersReceivedCallback(
   visualization_msgs::msg::MarkerArray::SharedPtr msg)
 {
+  if (!valid_) {return;}
   // Invalidate, if more than 1 person can be seen
   if (msg->markers.size() > 32) {
     RCLCPP_WARN(get_logger(), "More bodies in view, invalidating commands");
     return;
   }
-  if (!valid_) {return;}
-
   this->get_parameter("moving_avg_depth", moving_avg_depth_);
   // TODO(Svastits): do this with param change callback
   // TODO(Svastits): check param validity (no negative numbers)
@@ -197,20 +196,13 @@ void MapArm::markersReceivedCallback(
       handtip_it->pose.position,
       wrist_it->pose.position);
 
+
     Eigen::AngleAxisf rot2_1(-joint_state[2], Eigen::Vector3f::UnitZ());
     Eigen::AngleAxisf rot2_2(joint_state[3], Eigen::Vector3f::UnitY());
     Eigen::Matrix3f rot_2 = rot2_2.toRotationMatrix() * rot2_1.toRotationMatrix() * rot;
     Eigen::Vector3f h_global_pos(handtip_rel_pos.x, handtip_rel_pos.y,
       handtip_rel_pos.z);
     Eigen::Vector3f h_rel_pos = rot_2 * h_global_pos;
-
-    RCLCPP_INFO_STREAM(
-      get_logger(),
-      h_rel_pos[0] << "  " << h_rel_pos[1] << "  " << h_rel_pos[2]);
-
-    RCLCPP_INFO_STREAM(
-      get_logger(),
-      sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2) + pow(h_rel_pos[2], 2)));
 
     joint_state[4] = atan2(abs(h_rel_pos[1]), abs(h_rel_pos[0]));
 
@@ -265,8 +257,9 @@ void MapArm::markersReceivedCallback(
     float delta_len = sqrt(
       delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 
-    if (delta_len > 0.04) {
+    if (delta_len > 0.01) {
       prev_rel_pose_ = rel_pose_;
+      RCLCPP_INFO(get_logger(), "Reference published");
       reference_publisher_->publish(reference);
     } else {
       RCLCPP_INFO(
