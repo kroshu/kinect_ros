@@ -27,7 +27,7 @@ env:
   global: # global settings for all jobs
     - ROS_REPO=main
     - CCACHE_DIR=$HOME/.ccache # enables C/C++ caching in industrial_ci
-    - UPSTREAM_WORKSPACE='github:kroshu/kroshu_ros2_core#master github:kroshu/robot_control#main github:kroshu/ros2_kuka_sunrise#master github:kroshu/ros2_kuka_sunrise_interfaces#master github:libigl/eigen#master'
+    - UPSTREAM_WORKSPACE='github:kroshu/robot_control#main github:kroshu/ros2_kuka_sunrise#master github:kroshu/ros2_kuka_sunrise_interfaces#master github:ros/geometry2#noetic-devel'
     - BUILDER='colcon'
     - SONARQUBE='true'
     - TEST_COVERAGE='true'
