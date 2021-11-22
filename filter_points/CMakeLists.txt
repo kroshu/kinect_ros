@@ -20,9 +20,7 @@ include_directories(include)
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_lifecycle REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 
 add_library(utils SHARED
@@ -30,7 +28,7 @@ add_library(utils SHARED
 ament_target_dependencies(utils rclcpp)
 
 add_executable(filter_points src/FilterPoints.cpp)
-ament_target_dependencies(filter_points rclcpp rclcpp_lifecycle visualization_msgs std_srvs)
+ament_target_dependencies(filter_points rclcpp visualization_msgs std_srvs)
 target_link_libraries(filter_points utils)
 
 install(TARGETS filter_points

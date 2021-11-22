@@ -28,6 +28,7 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "kuka_sunrise_interfaces/srv/get_state.hpp"
+#include "kuka_sunrise/internal/service_tools.hpp"
 
 namespace driver_guided_robot
 {

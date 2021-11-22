@@ -18,22 +18,21 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_lifecycle REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
-find_package(moveit_ros_planning_interface REQUIRED)
 find_package(filter_points REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 get_filename_component(PARENT_DIR ${filter_points_DIR} DIRECTORY)
 get_filename_component(PARENT_DIR ${PARENT_DIR} DIRECTORY)
 get_filename_component(filter_point_INCLUDES ${PARENT_DIR} DIRECTORY)
 
 
-include_directories(include ${filter_point_INCLUDES}/include)
+include_directories(include ${filter_point_INCLUDES}/include SYSTEM ${EIGEN3_INCLUDE_DIRS})
 
 add_executable(map_arm src/MapArm.cpp)
-ament_target_dependencies(map_arm rclcpp rclcpp_lifecycle visualization_msgs std_srvs sensor_msgs moveit_ros_planning_interface)
+ament_target_dependencies(map_arm rclcpp visualization_msgs std_srvs sensor_msgs)
 target_link_libraries(map_arm filter_points::utils)
 
 install(TARGETS map_arm

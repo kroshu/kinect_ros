@@ -17,7 +17,6 @@
 #include <thread>
 
 #include "control_system/system_manager.hpp"
-#include "kuka_sunrise/internal/service_tools.hpp"
 
 namespace driver_guided_robot
 {
@@ -52,6 +51,7 @@ SystemManager::SystemManager(
     std_srvs::srv::Trigger::Request::SharedPtr request,
     std_srvs::srv::Trigger::Response::SharedPtr response) {
       (void) request_header;
+      (void) request;
       response->success = true;
       setBool_request_->data = false;
       manage_processing_client_->async_send_request(setBool_request_);
