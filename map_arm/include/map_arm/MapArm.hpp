@@ -15,7 +15,7 @@
 #ifndef MAP_ARM__MAPARM_HPP_
 #define MAP_ARM__MAPARM_HPP_
 
-#include <tf2_eigen/tf2_eigen.h>
+#include <Eigen/Geometry>
 
 #include <cinttypes>
 #include <vector>
