@@ -29,7 +29,7 @@ get_filename_component(PARENT_DIR ${PARENT_DIR} DIRECTORY)
 get_filename_component(filter_point_INCLUDES ${PARENT_DIR} DIRECTORY)
 
 
-include_directories(include ${filter_point_INCLUDES}/include SYSTEM ${EIGEN3_INCLUDE_DIRS})
+include_directories(include ${filter_point_INCLUDES}/include ${EIGEN3_INCLUDE_DIRS})
 
 add_executable(map_arm src/MapArm.cpp)
 ament_target_dependencies(map_arm rclcpp visualization_msgs std_srvs sensor_msgs)

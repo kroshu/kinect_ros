@@ -38,6 +38,9 @@ env:
 notifications:
   email: false
 
+before_install:
+  - sudo apt-get -y install libeigen3-dev
+  
 # clone and run industrial_ci
 install:
   - git clone --quiet --depth 1 https://github.com/kroshu/industrial_ci.git .industrial_ci
