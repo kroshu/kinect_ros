@@ -22,7 +22,6 @@ find_package(visualization_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(filter_points REQUIRED)
-find_package(Eigen3 REQUIRED)
 
 get_filename_component(PARENT_DIR ${filter_points_DIR} DIRECTORY)
 get_filename_component(PARENT_DIR ${PARENT_DIR} DIRECTORY)
