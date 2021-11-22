@@ -24,7 +24,7 @@ namespace filter_points
 {
 
 MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & options)
-: rclcpp::Node(node_name, options), valid_(true), prev_joint_state_(7), moving_avg_depth_(
+: rclcpp::Node(node_name, options), prev_joint_state_(7), moving_avg_depth_(
     7), qos_(rclcpp::KeepLast(1))
 {
   auto callback = [this](
@@ -43,7 +43,17 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
     std_srvs::srv::SetBool::Request::SharedPtr request,
     std_srvs::srv::SetBool::Response::SharedPtr response) {
       (void) request_header;
-      if (request->data) {valid_ = true;} else {valid_ = false;}
+      if (request->data) {
+        valid_ = true;
+        RCLCPP_INFO(
+          this->get_logger(),
+          "System manager is active again, continuing motion");
+      } else {
+        valid_ = false;
+        RCLCPP_WARN(
+          this->get_logger(),
+          "LBR state is not 4, reactivate or restart system manager!");
+      }
       response->success = true;
     };
   manage_processing_service_ = this->create_service<std_srvs::srv::SetBool>(
@@ -57,22 +67,81 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   this->declare_parameter(
     "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
       4, 4, 0});
+
+  param_callback_ = this->add_on_set_parameters_callback(
+    [this](const std::vector<rclcpp::Parameter> & parameters) {
+      return this->onParamChange(parameters);
+    });
 }
 
+rcl_interfaces::msg::SetParametersResult MapArm::onParamChange(
+  const std::vector<rclcpp::Parameter> & parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+  for (const rclcpp::Parameter & param : parameters) {
+    if (param.get_name() == "moving_avg_depth") {
+      result.successful = onMovingAvgChangeRequest(param);
+    } else {
+      RCLCPP_ERROR(
+        this->get_logger(), "Invalid parameter name %s",
+        param.get_name().c_str());
+      result.successful = false;
+    }
+  }
+  return result;
+}
+
+bool MapArm::onMovingAvgChangeRequest(const rclcpp::Parameter & param)
+{
+  if (motion_started_) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Parameter %s cannot be changed when motion has started",
+      param.get_name().c_str());
+  }
+  if (param.get_type() !=
+    rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER_ARRAY)
+  {
+    RCLCPP_ERROR(
+      this->get_logger(), "Invalid parameter type for parameter %s",
+      param.get_name().c_str());
+    return false;
+  }
+  if (param.as_integer_array().size() != 7) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Invalid parameter array length for parameter %s",
+      param.get_name().c_str());
+    return false;
+  }
+  for (int ma : param.as_integer_array()) {
+    if (ma < 0) {
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "Invalid parameter value for parameter %s", param.get_name().c_str());
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "Moving average values must be greater than 0");
+      return false;
+    }
+  }
+  moving_avg_depth_ = param.as_integer_array();
+  return true;
+}
 
 void MapArm::markersReceivedCallback(
   visualization_msgs::msg::MarkerArray::SharedPtr msg)
 {
-  if (!valid_) {return;}
+  motion_started_ = true;
+  if (!valid_) {
+    return;
+  }
   // Invalidate, if more than 1 person can be seen
   if (msg->markers.size() > 32) {
     RCLCPP_WARN(get_logger(), "More bodies in view, invalidating commands");
     return;
   }
-  this->get_parameter("moving_avg_depth", moving_avg_depth_);
-  // TODO(Svastits): do this with param change callback
-  // TODO(Svastits): check param validity (no negative numbers)
-
   // Getting the required joint positions
   auto handtip_it =
     std::find_if(

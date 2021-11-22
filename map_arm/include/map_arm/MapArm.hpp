@@ -44,7 +44,8 @@ public:
   MapArm(const std::string & node_name, const rclcpp::NodeOptions & options);
 
 private:
-  bool valid_;
+  bool valid_ = true;
+  bool motion_started_ = false;
   std::vector<double> prev_joint_state_;
   std::vector<int64_t> moving_avg_depth_;  // int is not supported for vectors, only uint8_t or long
   geometry_msgs::msg::Pose shoulder_pose_, rel_pose_, stop_pose_, prev_rel_pose_;
@@ -57,6 +58,10 @@ private:
   std_srvs::srv::Trigger::Request::SharedPtr trigger_request_ =
     std::make_shared<std_srvs::srv::Trigger::Request>();
   rclcpp::QoS qos_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
+  bool onMovingAvgChangeRequest(const rclcpp::Parameter & param);
+  rcl_interfaces::msg::SetParametersResult onParamChange(
+    const std::vector<rclcpp::Parameter> & parameters);
   void markersReceivedCallback(
     visualization_msgs::msg::MarkerArray::SharedPtr msg);
 };
