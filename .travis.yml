@@ -39,6 +39,7 @@ notifications:
   email: false
 
 before_install:
+  - sudo apt-get update
   - sudo apt-get -y install libeigen3-dev
   
 # clone and run industrial_ci
