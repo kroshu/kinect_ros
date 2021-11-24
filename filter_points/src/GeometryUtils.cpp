@@ -20,7 +20,7 @@ namespace filter_points
 
 void CameraToRobot(geometry_msgs::msg::Point & pos1)
 {
-  float tmp = pos1.x;
+  double tmp = pos1.x;
   pos1.x = -pos1.z;
   pos1.z = -pos1.y;
   pos1.y = tmp;
@@ -38,25 +38,25 @@ geometry_msgs::msg::Quaternion ToQuaternion(
     result.y = (or3.x - or1.z) / (4 * result.w);
     result.z = (or1.y - or2.x) / (4 * result.w);
   } else if (or1.x > or2.y && or1.x > or3.z) {
-    float s = 2 * sqrt(1 + or1.x - or2.y - or3.z);
+    double s = 2 * sqrt(1 + or1.x - or2.y - or3.z);
     result.w = (or2.z - or3.y) / s;
     result.x = s / 4;
     result.y = (or1.y + or2.x) / s;
     result.z = (or3.x + or1.z) / s;
   } else if (or2.y > or3.z) {
-    float s = 2 * sqrt(1 - or1.x + or2.y - or3.z);
+    double s = 2 * sqrt(1 - or1.x + or2.y - or3.z);
     result.w = (or3.x - or1.z) / s;
     result.x = (or1.y + or2.x) / s;
     result.y = s / 4;
     result.z = (or2.z + or3.y) / s;
   } else {
-    float s = 2 * sqrt(1 - or1.x - or2.y + or3.z);
+    double s = 2 * sqrt(1 - or1.x - or2.y + or3.z);
     result.w = (or1.y - or2.x) / s;
     result.x = (or3.x + or1.z) / s;
     result.y = (or2.z + or3.y) / s;
     result.z = s / 4;
   }
-  float length = sqrt(
+  double length = sqrt(
     result.x * result.x + result.y * result.y + result.z * result.z +
     result.w * result.w);
   result.x /= length;
@@ -93,7 +93,7 @@ geometry_msgs::msg::Point CrossProduct(
   result.z = pos1.x * pos2.y - pos1.y * pos2.x;
 
   if (normalize) {
-    float length = sqrt(
+    double length = sqrt(
       result.x * result.x + result.y * result.y +
       result.z * result.z);
     result.x /= length;

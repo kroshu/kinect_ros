@@ -64,7 +64,7 @@ private:
   lifecycle_subscriptions_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr robot_commanding_state_subscription_;
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr change_robot_commanding_state_client_;
-  bool robot_control_active_;
+  bool robot_control_active_ = false;
   sensor_msgs::msg::JointState::SharedPtr reference_joint_state_;
 
   void GetFRIState();
@@ -78,7 +78,7 @@ private:
   std_srvs::srv::SetBool::Request::SharedPtr setBool_request_ =
     std::make_shared<std_srvs::srv::SetBool::Request>();
   rclcpp::callback_group::CallbackGroup::SharedPtr cbg_;
-  rclcpp::QoS qos_;
+  rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(10));
   std::thread polling_thread_;
   const std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(
     200);

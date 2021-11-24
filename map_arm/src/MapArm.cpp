@@ -24,8 +24,7 @@ namespace filter_points
 {
 
 MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & options)
-: rclcpp::Node(node_name, options), prev_joint_state_(7), moving_avg_depth_(
-    7), qos_(rclcpp::KeepLast(1))
+: rclcpp::Node(node_name, options)
 {
   auto callback = [this](
     visualization_msgs::msg::MarkerArray::SharedPtr msg) {
@@ -239,11 +238,11 @@ void MapArm::markersReceivedCallback(
       wrist_it->pose.position,
       elbow_it->pose.position);
 
-    Eigen::AngleAxisf rot1(-joint_state[0], Eigen::Vector3f::UnitZ());
-    Eigen::AngleAxisf rot2(-joint_state[1], Eigen::Vector3f::UnitY());
-    Eigen::Matrix3f rot = rot2.toRotationMatrix() * rot1.toRotationMatrix();
-    Eigen::Vector3f global_pos(wrist_rel_pos.x, wrist_rel_pos.y, wrist_rel_pos.z);
-    Eigen::Vector3f e_rel_pos = rot * global_pos;
+    Eigen::AngleAxisd rot1(-joint_state[0], Eigen::Vector3d::UnitZ());
+    Eigen::AngleAxisd rot2(-joint_state[1], Eigen::Vector3d::UnitY());
+    Eigen::Matrix3d rot = rot2.toRotationMatrix() * rot1.toRotationMatrix();
+    Eigen::Vector3d global_pos(wrist_rel_pos.x, wrist_rel_pos.y, wrist_rel_pos.z);
+    Eigen::Vector3d e_rel_pos = rot * global_pos;
 
     if (abs(e_rel_pos[0]) > 0.03 || abs(e_rel_pos[1]) > 0.03) {
       joint_state[2] = atan2(-e_rel_pos[1], -e_rel_pos[0]);
@@ -266,12 +265,12 @@ void MapArm::markersReceivedCallback(
       wrist_it->pose.position);
 
 
-    Eigen::AngleAxisf rot2_1(-joint_state[2], Eigen::Vector3f::UnitZ());
-    Eigen::AngleAxisf rot2_2(joint_state[3], Eigen::Vector3f::UnitY());
-    Eigen::Matrix3f rot_2 = rot2_2.toRotationMatrix() * rot2_1.toRotationMatrix() * rot;
-    Eigen::Vector3f h_global_pos(handtip_rel_pos.x, handtip_rel_pos.y,
+    Eigen::AngleAxisd rot2_1(-joint_state[2], Eigen::Vector3d::UnitZ());
+    Eigen::AngleAxisd rot2_2(joint_state[3], Eigen::Vector3d::UnitY());
+    Eigen::Matrix3d rot_2 = rot2_2.toRotationMatrix() * rot2_1.toRotationMatrix() * rot;
+    Eigen::Vector3d h_global_pos(handtip_rel_pos.x, handtip_rel_pos.y,
       handtip_rel_pos.z);
-    Eigen::Vector3f h_rel_pos = rot_2 * h_global_pos;
+    Eigen::Vector3d h_rel_pos = rot_2 * h_global_pos;
 
     joint_state[4] = atan2(abs(h_rel_pos[1]), abs(h_rel_pos[0]));
 
@@ -323,7 +322,7 @@ void MapArm::markersReceivedCallback(
 
     // If cartesian distance is small, do not send new commands
     auto delta = PoseDiff(rel_pose_.position, prev_rel_pose_.position);
-    float delta_len = sqrt(
+    double delta_len = sqrt(
       delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 
     if (delta_len > 0.01) {

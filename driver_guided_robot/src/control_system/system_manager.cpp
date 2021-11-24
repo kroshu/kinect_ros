@@ -24,8 +24,7 @@ namespace driver_guided_robot
 SystemManager::SystemManager(
   const std::string & node_name,
   const rclcpp::NodeOptions & options)
-: LifecycleNode(node_name, options), robot_control_active_(false), qos_(
-    rclcpp::KeepLast(10))
+: LifecycleNode(node_name, options)
 {
   qos_.reliable();
   cbg_ = this->create_callback_group(
@@ -252,7 +251,7 @@ void SystemManager::GetFRIState()
     [this](
     rclcpp::Client<kuka_sunrise_interfaces::srv::GetState>::SharedFuture future) {
       auto result = future.get();
-      lbr_state_ = result->data;
+      lbr_state_ = static_cast<int>(result->data);
 
       // Two consecutive non-four states are needed for shutdown
       // to avoid unnecessary stops
