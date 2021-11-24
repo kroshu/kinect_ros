@@ -55,33 +55,28 @@ public:
   on_error(const rclcpp_lifecycle::State &);
 
 private:
-  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::JointState>::SharedPtr
-    reference_joint_state_publisher_;
   bool changeState(const std::string & node_name, std::uint8_t transition);
   bool changeRobotCommandingState(bool is_active);
   void robotCommandingStateChanged(bool is_active);
-  std::vector<rclcpp::Subscription<lifecycle_msgs::msg::Transition>::SharedPtr>
-  lifecycle_subscriptions_;
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr robot_commanding_state_subscription_;
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr change_robot_commanding_state_client_;
-  bool robot_control_active_ = false;
-  sensor_msgs::msg::JointState::SharedPtr reference_joint_state_;
-
   void GetFRIState();
   void MonitoringLoop();
-  bool start_ = true;
+  bool robot_control_active_ = false;
   bool stop_ = false;
   int lbr_state_ = 0;
+  const std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(
+    200);
+
+  std::thread polling_thread_;
+
+  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::JointState>::SharedPtr
+    reference_joint_state_publisher_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr robot_commanding_state_subscription_;
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr change_robot_commanding_state_client_;
   rclcpp::Client<kuka_sunrise_interfaces::srv::GetState>::SharedPtr get_state_client_;
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr manage_processing_client_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr trigger_change_service_;
-  std_srvs::srv::SetBool::Request::SharedPtr setBool_request_ =
-    std::make_shared<std_srvs::srv::SetBool::Request>();
   rclcpp::callback_group::CallbackGroup::SharedPtr cbg_;
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(10));
-  std::thread polling_thread_;
-  const std::chrono::milliseconds sleeping_time_ms_ = std::chrono::milliseconds(
-    200);
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SUCCESS =
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -93,8 +88,6 @@ private:
   const std::string JOINT_CONTROLLER = "joint_controller";
   const std::string ROBOT_INTERFACE = "robot_manager";
 };
-
-
 }  // namespace driver_guided_robot
 
 #endif  // CONTROL_SYSTEM__SYSTEM_MANAGER_HPP_

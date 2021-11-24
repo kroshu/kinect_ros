@@ -52,8 +52,10 @@ SystemManager::SystemManager(
       (void) request_header;
       (void) request;
       response->success = true;
-      setBool_request_->data = false;
-      manage_processing_client_->async_send_request(setBool_request_);
+      auto setBool_request =
+        std::make_shared<std_srvs::srv::SetBool::Request>();
+      setBool_request->data = false;
+      manage_processing_client_->async_send_request(setBool_request);
       RCLCPP_WARN(get_logger(), "Motion stopped externally, deactivating controls and managers");
       this->deactivate();
     };
@@ -122,8 +124,10 @@ SystemManager::on_activate(const rclcpp_lifecycle::State & state)
   }
   polling_thread_ = std::thread(&SystemManager::MonitoringLoop, this);
   robot_control_active_ = true;
-  setBool_request_->data = true;
-  manage_processing_client_->async_send_request(setBool_request_);
+  auto setBool_request =
+    std::make_shared<std_srvs::srv::SetBool::Request>();
+  setBool_request->data = true;
+  manage_processing_client_->async_send_request(setBool_request);
   return SUCCESS;
 }
 
@@ -258,8 +262,10 @@ void SystemManager::GetFRIState()
       if (lbr_state_ != 4 && !stop_) {
         stop_ = true;
       } else if (lbr_state_ != 4 && stop_) {
-        setBool_request_->data = false;
-        manage_processing_client_->async_send_request(setBool_request_);
+        auto setBool_request =
+          std::make_shared<std_srvs::srv::SetBool::Request>();
+        setBool_request->data = false;
+        manage_processing_client_->async_send_request(setBool_request);
       } else {
         stop_ = false;
       }

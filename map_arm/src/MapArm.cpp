@@ -114,7 +114,7 @@ bool MapArm::onMovingAvgChangeRequest(const rclcpp::Parameter & param)
       param.get_name().c_str());
     return false;
   }
-  for (int ma : param.as_integer_array()) {
+  for (int64_t ma : param.as_integer_array()) {
     if (ma < 0) {
       RCLCPP_ERROR(
         this->get_logger(),
@@ -228,7 +228,7 @@ void MapArm::markersReceivedCallback(
 
     // Moving average
     for (int i = 0; i < 2; i++) {
-      int factor = moving_avg_depth_[i] + 1;
+      int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
       joint_state[i] = joint_state[i] / factor +
         prev_joint_state_[i] * (factor - 1) / factor;
     }
@@ -254,7 +254,7 @@ void MapArm::markersReceivedCallback(
       e_rel_pos[2]);
 
     for (int i = 2; i < 4; i++) {
-      int factor = moving_avg_depth_[i] + 1;
+      int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
       joint_state[i] = joint_state[i] / factor +
         prev_joint_state_[i] * (factor - 1) / factor;
     }
@@ -297,7 +297,7 @@ void MapArm::markersReceivedCallback(
     }
 
     for (int i = 4; i < 6; i++) {
-      int factor = moving_avg_depth_[i] + 1;
+      int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
       joint_state[i] = joint_state[i] / factor +
         prev_joint_state_[i] * (factor - 1) / factor;
     }
