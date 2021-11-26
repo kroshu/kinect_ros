@@ -27,13 +27,6 @@ add_library(utils SHARED
   src/GeometryUtils.cpp)
 ament_target_dependencies(utils rclcpp)
 
-add_executable(filter_points src/FilterPoints.cpp)
-ament_target_dependencies(filter_points rclcpp visualization_msgs std_srvs)
-target_link_libraries(filter_points utils)
-
-install(TARGETS filter_points
-    DESTINATION lib/${PROJECT_NAME})
-
 ament_export_targets(utils HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp)
 
