@@ -42,17 +42,17 @@ public:
   void deactivateControl();
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_configure(const rclcpp_lifecycle::State &);
+  on_configure(const rclcpp_lifecycle::State &) final;
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_cleanup(const rclcpp_lifecycle::State &);
+  on_cleanup(const rclcpp_lifecycle::State &) final;
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_shutdown(const rclcpp_lifecycle::State &);
+  on_shutdown(const rclcpp_lifecycle::State &) final;
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_activate(const rclcpp_lifecycle::State &);
+  on_activate(const rclcpp_lifecycle::State &) final;
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_deactivate(const rclcpp_lifecycle::State &);
+  on_deactivate(const rclcpp_lifecycle::State &) final;
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_error(const rclcpp_lifecycle::State &);
+  on_error(const rclcpp_lifecycle::State &) final;
 
 private:
   bool changeState(const std::string & node_name, std::uint8_t transition);

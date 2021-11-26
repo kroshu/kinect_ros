@@ -28,7 +28,7 @@ SystemManager::SystemManager(
 {
   qos_.reliable();
   cbg_ = this->create_callback_group(
-    rclcpp::callback_group::CallbackGroupType::MutuallyExclusive);
+    rclcpp::CallbackGroupType::MutuallyExclusive);
   change_robot_commanding_state_client_ = this->create_client<
     std_srvs::srv::SetBool>(
     ROBOT_INTERFACE + "/set_commanding_state",

@@ -47,24 +47,33 @@ private:
   std::vector<double> prev_joint_state_ = std::vector<double>(7);
   // int is not supported for vectors, only uint8_t or long
   std::vector<int64_t> moving_avg_depth_ = std::vector<int64_t>(7);
-  geometry_msgs::msg::Pose shoulder_pose_, rel_pose_, stop_pose_, prev_rel_pose_;
-  geometry_msgs::msg::Point orientation_x_, orientation_y_, orientation_z_,
-    left_stop_;
+  geometry_msgs::msg::Point prev_rel_pose_;
+
+  rcl_interfaces::msg::SetParametersResult onParamChange(
+    const std::vector<rclcpp::Parameter> & parameters);
+  bool onMovingAvgChangeRequest(const rclcpp::Parameter & param);
+  void markersReceivedCallback(
+    visualization_msgs::msg::MarkerArray::SharedPtr msg);
+  void calculateJoints12(
+    std::vector<double> & joint_state,
+    geometry_msgs::msg::Point elbow_rel_pos);
+  void calculateJoints34(
+    std::vector<double> & joint_state,
+    geometry_msgs::msg::Point wrist_rel_pos);
+  void calculateJoints56(
+    std::vector<double> & joint_state,
+    geometry_msgs::msg::Point handtip_rel_pos);
+
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr manage_processing_service_;
   rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr marker_listener_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
+
   std_srvs::srv::Trigger::Request::SharedPtr trigger_request_ =
     std::make_shared<std_srvs::srv::Trigger::Request>();
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
-  bool onMovingAvgChangeRequest(const rclcpp::Parameter & param);
-  rcl_interfaces::msg::SetParametersResult onParamChange(
-    const std::vector<rclcpp::Parameter> & parameters);
-  void markersReceivedCallback(
-    visualization_msgs::msg::MarkerArray::SharedPtr msg);
 };
-
 }  // namespace filter_points
 
 #endif  // MAP_ARM__MAPARM_HPP_

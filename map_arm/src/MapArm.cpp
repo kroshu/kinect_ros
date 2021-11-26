@@ -60,8 +60,8 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change");
 
-  prev_rel_pose_.position.x = prev_rel_pose_.position.y =
-    prev_rel_pose_.position.z = 0;
+  prev_rel_pose_.x = prev_rel_pose_.y =
+    prev_rel_pose_.z = 0;
 
   this->declare_parameter(
     "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
@@ -141,6 +141,7 @@ void MapArm::markersReceivedCallback(
     RCLCPP_WARN(get_logger(), "More bodies in view, invalidating commands");
     return;
   }
+
   // Getting the required joint positions
   auto handtip_it =
     std::find_if(
@@ -176,14 +177,6 @@ void MapArm::markersReceivedCallback(
       static_cast<int>(BODY_TRACKING_JOINTS::WRIST_RIGHT);
     });
 
-  auto thumb_it = std::find_if(
-    msg->markers.begin(), msg->markers.end(),
-    [](const visualization_msgs::msg::Marker & marker) {
-      int joint_id = marker.id % 100;
-      return joint_id ==
-      static_cast<int>(BODY_TRACKING_JOINTS::THUMB_RIGHT);
-    });
-
   auto hand_it = std::find_if(
     msg->markers.begin(), msg->markers.end(),
     [](const visualization_msgs::msg::Marker & marker) {
@@ -200,7 +193,7 @@ void MapArm::markersReceivedCallback(
       static_cast<int>(BODY_TRACKING_JOINTS::HANDTIP_LEFT);
     });
 
-  if (handtip_it != msg->markers.end() && thumb_it != msg->markers.end() &&
+  if (handtip_it != msg->markers.end() &&
     wrist_it != msg->markers.end() &&
     shoulder_it != msg->markers.end() &&
     elbow_it != msg->markers.end() &&
@@ -209,108 +202,33 @@ void MapArm::markersReceivedCallback(
     sensor_msgs::msg::JointState reference;
     std::vector<double> joint_state(7);
 
-
-    // Calculate joints 1 and 2
-    rel_pose_.position = PoseDiff(
-      handtip_it->pose.position,
-      shoulder_it->pose.position);
     auto elbow_rel_pos = PoseDiff(
       elbow_it->pose.position,
       shoulder_it->pose.position);
-    if (abs(elbow_rel_pos.x) > 0.03 || abs(elbow_rel_pos.y) > 0.03) {
-      joint_state[0] = atan2(elbow_rel_pos.y, elbow_rel_pos.x);
-    } else {
-      joint_state[0] = prev_joint_state_[0];
-    }
-    joint_state[1] = atan2(
-      sqrt(pow(elbow_rel_pos.x, 2) + pow(elbow_rel_pos.y, 2)),
-      elbow_rel_pos.z);
 
-    // Moving average
-    for (int i = 0; i < 2; i++) {
-      int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
-      joint_state[i] = joint_state[i] / factor +
-        prev_joint_state_[i] * (factor - 1) / factor;
-    }
+    calculateJoints12(joint_state, elbow_rel_pos);
 
-    // Calculate joints 3 and 4
     auto wrist_rel_pos = PoseDiff(
       wrist_it->pose.position,
       elbow_it->pose.position);
 
-    Eigen::AngleAxisd rot1(-joint_state[0], Eigen::Vector3d::UnitZ());
-    Eigen::AngleAxisd rot2(-joint_state[1], Eigen::Vector3d::UnitY());
-    Eigen::Matrix3d rot = rot2.toRotationMatrix() * rot1.toRotationMatrix();
-    Eigen::Vector3d global_pos(wrist_rel_pos.x, wrist_rel_pos.y, wrist_rel_pos.z);
-    Eigen::Vector3d e_rel_pos = rot * global_pos;
-
-    if (abs(e_rel_pos[0]) > 0.03 || abs(e_rel_pos[1]) > 0.03) {
-      joint_state[2] = atan2(-e_rel_pos[1], -e_rel_pos[0]);
-    } else {
-      joint_state[2] = prev_joint_state_[2];
-    }
-    joint_state[3] = atan2(
-      sqrt(pow(e_rel_pos[0], 2) + pow(e_rel_pos[1], 2)),
-      e_rel_pos[2]);
-
-    for (int i = 2; i < 4; i++) {
-      int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
-      joint_state[i] = joint_state[i] / factor +
-        prev_joint_state_[i] * (factor - 1) / factor;
-    }
+    calculateJoints34(joint_state, wrist_rel_pos);
 
     // Calculate joints 5 and 6
     auto handtip_rel_pos = PoseDiff(
       handtip_it->pose.position,
       wrist_it->pose.position);
 
+    calculateJoints56(joint_state, handtip_rel_pos);
 
-    Eigen::AngleAxisd rot2_1(-joint_state[2], Eigen::Vector3d::UnitZ());
-    Eigen::AngleAxisd rot2_2(joint_state[3], Eigen::Vector3d::UnitY());
-    Eigen::Matrix3d rot_2 = rot2_2.toRotationMatrix() * rot2_1.toRotationMatrix() * rot;
-    Eigen::Vector3d h_global_pos(handtip_rel_pos.x, handtip_rel_pos.y,
-      handtip_rel_pos.z);
-    Eigen::Vector3d h_rel_pos = rot_2 * h_global_pos;
-
-    joint_state[4] = atan2(abs(h_rel_pos[1]), abs(h_rel_pos[0]));
-
-    if (abs(h_rel_pos[1]) > abs(h_rel_pos[0])) {
-      if (h_rel_pos[1] > 0) {
-        joint_state[5] = atan2(
-          sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
-          h_rel_pos[2]);
-      } else {
-        joint_state[5] = -atan2(
-          sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
-          h_rel_pos[2]);
-      }
-    } else {
-      if (h_rel_pos[0] > 0) {
-        joint_state[5] = atan2(
-          sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
-          h_rel_pos[2]);
-      } else {
-        joint_state[5] = -atan2(
-          sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
-          h_rel_pos[2]);
-      }
-    }
-
-    for (int i = 4; i < 6; i++) {
-      int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
-      joint_state[i] = joint_state[i] / factor +
-        prev_joint_state_[i] * (factor - 1) / factor;
-    }
-
-    // Joint 7 is constant, as it would need thumb position, which is inaccurate
+    // Joint 7 is constant 0, as it would need thumb position, which is inaccurate
     joint_state[6] = 0;
     reference.position = joint_state;
 
     // Stop if left hand is raised
     if (stop_it != msg->markers.end()) {
-      stop_pose_ = stop_it->pose;
-      left_stop_ = PoseDiff(stop_pose_.position, shoulder_pose_.position);
-      if (left_stop_.z > 0.4) {
+      auto left_stop = PoseDiff(stop_it->pose.position, shoulder_it->pose.position);
+      if (left_stop.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
         change_state_client_->async_send_request(trigger_request_);
       }
@@ -321,12 +239,15 @@ void MapArm::markersReceivedCallback(
     }
 
     // If cartesian distance is small, do not send new commands
-    auto delta = PoseDiff(rel_pose_.position, prev_rel_pose_.position);
+    auto rel_pose = PoseDiff(
+      handtip_it->pose.position,
+      shoulder_it->pose.position);
+    auto delta = PoseDiff(rel_pose, prev_rel_pose_);
     double delta_len = sqrt(
       delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 
     if (delta_len > 0.01) {
-      prev_rel_pose_ = rel_pose_;
+      prev_rel_pose_ = rel_pose;
       RCLCPP_INFO(get_logger(), "Reference published");
       reference_publisher_->publish(reference);
     } else {
@@ -340,6 +261,97 @@ void MapArm::markersReceivedCallback(
       get_logger(),
       "Missing joint from hand, stopping motion");
     change_state_client_->async_send_request(trigger_request_);
+  }
+}
+
+void MapArm::calculateJoints12(
+  std::vector<double> & joint_state,
+  geometry_msgs::msg::Point elbow_rel_pos)
+{
+  if (abs(elbow_rel_pos.x) > 0.03 || abs(elbow_rel_pos.y) > 0.03) {
+    joint_state[0] = atan2(elbow_rel_pos.y, elbow_rel_pos.x);
+  } else {
+    joint_state[0] = prev_joint_state_[0];
+  }
+  joint_state[1] = atan2(
+    sqrt(pow(elbow_rel_pos.x, 2) + pow(elbow_rel_pos.y, 2)), elbow_rel_pos.z);
+
+  // Moving average
+  for (int i = 0; i < 2; i++) {
+    int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
+    joint_state[i] = joint_state[i] / factor +
+      prev_joint_state_[i] * (factor - 1) / factor;
+  }
+}
+
+void MapArm::calculateJoints34(
+  std::vector<double> & joint_state,
+  geometry_msgs::msg::Point wrist_rel_pos)
+{
+  Eigen::AngleAxisd rot1(-joint_state[0], Eigen::Vector3d::UnitZ());
+  Eigen::AngleAxisd rot2(-joint_state[1], Eigen::Vector3d::UnitY());
+  Eigen::Matrix3d rot = rot2.toRotationMatrix() * rot1.toRotationMatrix();
+  Eigen::Vector3d global_pos(wrist_rel_pos.x, wrist_rel_pos.y, wrist_rel_pos.z);
+  Eigen::Vector3d e_rel_pos = rot * global_pos;
+
+  if (abs(e_rel_pos[0]) > 0.03 || abs(e_rel_pos[1]) > 0.03) {
+    joint_state[2] = atan2(-e_rel_pos[1], -e_rel_pos[0]);
+  } else {
+    joint_state[2] = prev_joint_state_[2];
+  }
+  joint_state[3] = atan2(
+    sqrt(pow(e_rel_pos[0], 2) + pow(e_rel_pos[1], 2)),
+    e_rel_pos[2]);
+
+  for (int i = 2; i < 4; i++) {
+    int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
+    joint_state[i] = joint_state[i] / factor +
+      prev_joint_state_[i] * (factor - 1) / factor;
+  }
+}
+
+void MapArm::calculateJoints56(
+  std::vector<double> & joint_state,
+  geometry_msgs::msg::Point handtip_rel_pos)
+{
+  Eigen::AngleAxisd rot1(-joint_state[0], Eigen::Vector3d::UnitZ());
+  Eigen::AngleAxisd rot2(-joint_state[1], Eigen::Vector3d::UnitY());
+  Eigen::AngleAxisd rot3(-joint_state[2], Eigen::Vector3d::UnitZ());
+  Eigen::AngleAxisd rot4(joint_state[3], Eigen::Vector3d::UnitY());
+  Eigen::Matrix3d rot_2 = rot4.toRotationMatrix() * rot3.toRotationMatrix() *
+    rot2.toRotationMatrix() * rot1.toRotationMatrix();
+  Eigen::Vector3d h_global_pos(handtip_rel_pos.x, handtip_rel_pos.y,
+    handtip_rel_pos.z);
+  Eigen::Vector3d h_rel_pos = rot_2 * h_global_pos;
+
+  joint_state[4] = atan2(abs(h_rel_pos[1]), abs(h_rel_pos[0]));
+
+  if (abs(h_rel_pos[1]) > abs(h_rel_pos[0])) {
+    if (h_rel_pos[1] > 0) {
+      joint_state[5] = atan2(
+        sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
+        h_rel_pos[2]);
+    } else {
+      joint_state[5] = -atan2(
+        sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
+        h_rel_pos[2]);
+    }
+  } else {
+    if (h_rel_pos[0] > 0) {
+      joint_state[5] = atan2(
+        sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
+        h_rel_pos[2]);
+    } else {
+      joint_state[5] = -atan2(
+        sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
+        h_rel_pos[2]);
+    }
+  }
+
+  for (int i = 4; i < 6; i++) {
+    int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
+    joint_state[i] = joint_state[i] / factor +
+      prev_joint_state_[i] * (factor - 1) / factor;
   }
 }
 }  // namespace filter_points
