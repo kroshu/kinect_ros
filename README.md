@@ -31,7 +31,7 @@ Travis CI | SonarCloud
 After building (colcon build in VS terminal) the node can be run with the 'ros2 run azure_kinect_ros_driver node --ros-args -p body_tracking_enabled:=true' command in a sourced terminal. (Or as a small cheat the default value of the parameter "body_tracking_enabled" can be changed to true in the k4a_ros_device_params.h header, so that the 'ros2 run azure_kinect_ros_driver node' command starts the bodytracking too.)
 
 ### Connecting the Windows and Linux machines
-Since ROS2 no bridge is needed between more machines, but a the communication method must be set up, which I achieved with the following environment variables:
+Since ROS2 no bridge is needed between multiple machines, but the communication method must be set up, which I achieved with the following environment variables:
 - RMW_IMPLEMENTATION := rmw_fastrtps_cpp
 - ROS_DOMAIN_ID := 0 #this ID is also set on the linux machine in bashrc, by another ID, both that, and the enable firewall ports must be changed (see later)
 - FASTRTPS_DEFAULT_PROFILES_FILE := <*location_to_xml*>\com_interface.xml
@@ -68,7 +68,7 @@ The camera driver node publishes messages on the *body_tracking_data* topic, eac
 The driver connects the Sunrise Fast Robot Interface with ROS. To start the simulation an Office PC is needed, while the ROS nodes should be run on a Linux machine. The Sunrise Workbench application is needed to configure the simulation (install, synchronize and set T1 in OfficeMode), but is only for visualisation purposes during the simulation. To be able to execute faster movements, the T2 mode must be set in the WorkBench.
 
 ### The structure of the driver nodes
-The system_manager node connects the robot_manager and robot_contol nodes and stops them if necessary (more on that later). The robot_manager node handles and configures the connection to the Sunrise FRI, while the robot_control sends the necessary commands to the robot. The joint_controller is necessary to enforce the joint, velocity and effort limits of the robot, otherwise a requested joint state too far away from the actual state would result in the stopping of the FRI session. The FRI has 4 states, commands are only executed, if the stateis 4.
+The system_manager node connects the robot_manager and robot_contol nodes and stops them if necessary (more on that later). The robot_manager node handles and configures the connection to the Sunrise FRI, while the robot_control sends the necessary commands to the robot. The joint_controller is necessary to enforce the joint, velocity and effort limits of the robot, otherwise a requested joint state too far away from the actual state would result in the stopping of the FRI session. The FRI has 4 states, commands are only executed, if the state is 4.
 
 <p align="center">
 <img src="images/driver_node.jpg" width="600">
@@ -77,11 +77,11 @@ The joint_controller receives the required joint positions, interpolates them if
 
 
 ### Stopping the robot motion
-The FRI session stops immediately, if the current position of the robot is not received, or if an invalid command is given (invalid meaning, that one of the limits is exceeeded). In that case the system_manager, which constantly monitors the FRI state, deactivates the robot_control and robot_manager node. The deactivation of these nodes would also stop the robot motion if the FRI state was 4. Therefore deactivating these nodes is a suitable way to stop the robot externally, for this goal the system_manager node has a service (system_manager/trigger_change), which deactivates the two other nodes if it receives a trigger message. 
+The FRI session stops immediately, if the current position of the robot is not received, or if an invalid command is given (invalid meaning, that one of the limits is exceeded). In that case the system_manager, which constantly monitors the FRI state, deactivates the robot_control and robot_manager node. The deactivation of these nodes would also stop the robot motion if the FRI state was 4. Therefore deactivating these nodes is a suitable way to stop the robot externally, for this goal the system_manager node has a service (system_manager/trigger_change), which deactivates the two other nodes if it receives a trigger message. 
 
 
 ### Processing the camera image
-The azure_kinect_ros_driver node publishes 31 markers on the body_tracking_data topic, from which the relevant ones can be processed. For full arm tracking, shoulder, elbow, wrist and 3 other joints of the hand are needed, then the required joint angles are calculated by implementing the inverse kinematics calculations.
+The azure_kinect_ros_driver node publishes 31 markers on the body_tracking_data topic, from which the relevant ones can be processed. For full arm tracking, shoulder, elbow, wrist and 3 other joints of the hand are needed. The required joint angles are calculated by implementing the inverse kinematics calculations.
 The node sends a trigger request to stop the robot, if the left hand is raised, if more bodies are in view, or if it doesn't receive a marker for one of the necessary body parts.
 The coordinate system of the camera is different from that of the robot, so before the calculations, a transformation is needed. To rotate the coordinate system of the camera into that of the robot, the system is rotated with +90° around the x axis, then with -90° around the new z axis.
 
@@ -93,13 +93,13 @@ The coordinate system of the camera is different from that of the robot, so befo
 
 ### 1. Moveit with planning and trajectory execution (endpont_tracing branch)
 
-At first the full potential of moveit was used with planning and trajectory execution with a fake controller. Moveit received the required relative position, computed the inverse kinematics, planned the motion according to the robot modell, than executed it with the fake controller manager (which basically echos its input as the real joint states).
+At first the full potential of moveit was used with planning and trajectory execution with a fake controller. Moveit received the required relative position, computed the inverse kinematics, planned the motion according to the robot modell, then executed it with the fake controller manager (which basically echos its input as the real joint states).
 
 The first experiments showed, that the execution cannot be stopped, a new reference got into the queue but the previous one had to be reached to start the new execution, so the latency of the motion was very big. This could be solved by setting the execution to non-blocking, this way when a new reference was received, the previous motion was stopped immediately. But this resulted in a very jerky movement, as the stopping of the execution means a velocity and acceleration of 0, so the robot had to stop completely by every new command (5 times every second).
 
 ### 2. Moveit servo body tracking
 
-According to the moveit documentation, such problems could be solved with moveit servo, which has a body tracking functionality and can achieve a smooth motion by calculating the reference joint positions from the required velocity to reach the designated point. The implementation however had a big drawback, as the twist messages (the required velocity) were calculated without taking into account the robot modell and the joint states calculated with the help of the Jacobian matrix. This means that in a lot of cases there are no valid joint positions for the required velocity and the robot also got stuck in singularities, as the Jacobian matrix had no solution there. A conclusion for this approach is, that it is only possible to servo linearly in the cartesian space, which defines too many limits for the body tracking. This solution only works in a very small workspace, where the joint limits and singularities are further away. (This way it would be possible to configure the robot workspace, so that specific small motions could be tracked, but for bigger moition the body tracking functionality is not working.)
+According to the moveit documentation, such problems could be solved with moveit servo, which has a body tracking functionality and can achieve a smooth motion by calculating the reference joint positions from the required velocity to reach the designated point. The implementation however had a big drawback, as the twist messages (the required velocity) were calculated without taking the robot model and the joint states into account calculated with the help of the Jacobian matrix. This means that in a lot of cases there are no valid joint positions for the required velocity and the robot also got stuck in singularities, as the Jacobian matrix had no solution there. A conclusion for this approach is, that it is only possible to servo linearly in the cartesian space, which defines too many limits for the body tracking. This solution only works in a very small workspace, where the joint limits and singularities are further away. (This way it would be possible to configure the robot workspace, so that specific small motions could be tracked, but for bigger moition the body tracking functionality is not working.)
  
 ### 3. Moveit servo with jogging input
 
@@ -107,11 +107,11 @@ The servo node has another option, which can accept control_msgs/JointJog messag
 
 ### 4. Moveit with only planning 
 
-As the movit servo node did not have the required functionalities, a solution must be found with the simple moveit node. The main problem was that no matter if the exection was blocking or non-blocking, the motion had to be stopped completely before a new goal state could be executed. Therefore removing the execution part (which is only a fake execution without a real controller) could solve the problem. The moveit API allows it to use the results of the planning (inverse kinematics and collision avoidance), so the endpoint for each planning session (a single joint configuration) can be sent to the joint controller for execution.
+As the moveit servo node did not have the required functionalities, a solution must be found with the simple moveit node. The main problem was that no matter if the execution was blocking or non-blocking, the motion had to be stopped completely before a new goal state could be executed. Therefore removing the execution part (which is only a fake execution without a real controller) could solve the problem. The moveit API allows it to use the results of the planning (inverse kinematics and collision avoidance), so the endpoint for each planning session (a single joint configuration) can be sent to the joint controller for execution.
 
 This concept successfully eliminated the complete stopping after every new reference, but the movement was still jerky, as consecutive planning sessions could result in very different joint configurations. (Because of the 7 degrees of freedom, a huge amount of joint states are possible for a given cartesian position, some of them very far from each other. Therefore it is possible that a few joints' rotation will have to change the direction of rotation.) This results in a jerky movement, which also takes much longer than it would take if the joint would move linearly.
 
-To improve this, planning was calculated more times for every reference, and the result closest to the previous on chosen as reference joint state. This reduced the jerkiness of the motion, but increased latency, as 5 planning sessions took around 200 ms. The theoretical latency is approximately the sample time of the camera plus the cycle time of the calculations, in this case that is 350 milliseconds. In practice, that was bigger, as 5 planning sessions did not result in an optimal solution, only a better one the then previously, so the motion was still longer than it should have been. Besides, the cycle time of the calculations were also bigger then that of the camera, so in some cases the robot arm reached the desired position before the results of the calculations and had to wait, which was also not good visually.
+To improve this, planning was calculated more times for every reference, and the result closest to the previous on chosen as reference joint state. This reduced the jerkiness of the motion, but increased latency, as 5 planning sessions took around 200 ms. The theoretical latency is approximately the sample time of the camera plus the cycle time of the calculations, in this case that is 350 milliseconds. In practice, that was bigger, as 5 planning sessions did not result in an optimal solution, only a better one than the previous, so the motion was still longer than it should have been. Besides, the cycle time of the calculations were also bigger then that of the camera, so in some cases the robot arm reached the desired position before the results of the calculations and had to wait, which was also not good visually.
 
 ### 5. Moveit with only inverse kinematics (follow_endpoint branch)
 
@@ -123,7 +123,7 @@ Now the relative position of the robot endpoint is calculated from the distance 
 
 ### 6. Own inverse kinematic calculations- full arm mapping (map_arm branch)
 
-Deterministic joint angles can be achieved by specific mathematical formulas, which are not included in any package, so own calculation are needed. Because of the difference in size and the 7 degrees of freedom, these formulas are better calculated for the full arm tracking as for only the endpont following. The robot arm's joint limits are much bigger than that of the human arm, so a full mapping should be possible, with the angles at the shoulder, elbow and wrist identical. This resulted in deterministic joint angles with the pose of the arms identical with small limitations.
+Deterministic joint angles can be achieved by specific mathematical formulas, which are not included in any package, so own calculations are needed. Because of the difference in size and the 7 degrees of freedom, these formulas are better calculated for the full arm tracking as for only the endpoint following. The robot arm's joint limits are much bigger than that of the human arm, so a full mapping should be possible, with the angles at the shoulder, elbow and wrist identical. This resulted in deterministic joint angles with the pose of the arms identical with small limitations.
 
 ## Planning and inverse kinematics for endpoint following (5. approach on follow_endpoint branch)
 The joint_controller can process only joint positions as input, so from the cartesian position and orientation joint positions must be calculated. The moveit_with_markerpos node does these calculation with the help of moveit and the KDL inverse kinematics plugin. The trajectory execution (control) is done by the robot_control node and the FRI, while the joint_controller can interpolate by bigger distances, so the main goal for this node is to calculate the inverse kinematics for the given position closest to the actual robot state. The problem is that by only one calculation, the consecutive solutions can be very far from each other in the joint space, as the 7-DOF robot arm has one free degree of freedom and countless valid solutions are possible, a lot of which could be at similiar distance from the actual position. That would result in a very jerky movement, taking a lot of time to reach the desired position. To avoid this behaviour, multiple inverse kinematics solution are calculated, and the closest to the previous one is selected. (This is the main reason for not using moveit planning, as it takes much more time than only the inverse kinematics and 5 planning calculations would increase the latency considerably. As there are no objects in the robot workspace to collide with, planning can be skipped without problems.)
@@ -137,7 +137,7 @@ To avoid bigger changes in the joint values during motion, deterministic inverse
 </p>
 
 ### Joint 1 and 2
-The shoulder has 3 degrees of freedom, two of which determine the position of the elbow. The proportion of x and y discplacementes determine the first angle, while the proportion of vertical and orthogonal displacements the second one (&Theta;<sub>i</sub> is the angle of the i-th joint):
+The shoulder has 3 degrees of freedom, two of which determine the position of the elbow. The proportion of x and y displacementes determine the first angle, while the proportion of vertical and orthogonal displacements the second one (&Theta;<sub>i</sub> is the angle of the i-th joint):
 
 ![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_1=\mathrm{atan2}(\Delta{}x,\Delta{}y)) 
 
@@ -158,7 +158,7 @@ Therefore a coordinate transformation is needed from the global system to the el
 ">
 </p>
 
-Rotating around z by &Theta;<sub>1</sub> and then around y by &Theta;<sub>2</sub> rotates the base system into the required orientation, which can be easily described by this 2 matrices:
+Rotating around z by &Theta;<sub>1</sub> and then around y by &Theta;<sub>2</sub> rotates the base system into the required orientation, which can be easily described with these 2 matrices:
 
 <img src="https://latex.codecogs.com/svg.latex?&space;\boldsymbol{\Delta{}r_{elbow}}=\begin{pmatrix}\cos\Theta{}_1&\sin\Theta{}_1&0\\-\sin\Theta{}_1&\cos\Theta{}_1&0\\0&0&1\end{pmatrix}*\begin{pmatrix}\cos\Theta{}_2&0&-\sin\Theta{}_2\\0&1&0\\\sin\Theta{}_2&0&\cos\Theta{}_2\end{pmatrix}*\boldsymbol{\Delta{}r}" />
 
@@ -203,7 +203,7 @@ By joint 6 the sign of the relative positions must be considered, and to assure 
 ![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_6=\mathrm{sgn}(x)*\mathrm{atan2}\(\Delta{}z_{wrist},\sqrt{\Delta{}x_{wrist}^2+\Delta{}y_{wrist}^2}\))
 
 
-The trigonometric calculations and coordinate transformations could be easily implemented with math and eigen packages, the resulting joint angles sent to the joint controller node for execution. The implementation is done in the map_arm package, which filters the incoming markers for the necessary ones and calculates the inverse kinamtics, finally publishing the reference joint states.
+The trigonometric calculations and coordinate transformations could be easily implemented with math and eigen packages, the resulting joint angles sent to the joint controller node for execution. The implementation is done in the map_arm package, which filters the incoming markers for the necessary ones and calculates the inverse kinematics, finally publishing the reference joint states.
 
 
 ## Modularity
