@@ -33,6 +33,7 @@
 namespace driver_guided_robot
 {
 
+// TODO(kovacsge11) maybe derive from ROS2BaseNode
 class SystemManager : public rclcpp_lifecycle::LifecycleNode
 {
 public:
@@ -58,8 +59,8 @@ private:
   bool changeState(const std::string & node_name, std::uint8_t transition);
   bool changeRobotCommandingState(bool is_active);
   void robotCommandingStateChanged(bool is_active);
-  void GetFRIState();
-  void MonitoringLoop();
+  void getFRIState();
+  void monitoringLoop();
   bool robot_control_active_ = false;
   bool stop_ = false;
   int lbr_state_ = 0;

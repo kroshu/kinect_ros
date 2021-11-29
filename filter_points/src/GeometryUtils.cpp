@@ -18,7 +18,7 @@
 namespace filter_points
 {
 
-void CameraToRobot(geometry_msgs::msg::Point & pos1)
+void cameraToRobot(geometry_msgs::msg::Point & pos1)
 {
   double tmp = pos1.x;
   pos1.x = -pos1.z;
@@ -26,7 +26,7 @@ void CameraToRobot(geometry_msgs::msg::Point & pos1)
   pos1.y = tmp;
 }
 
-geometry_msgs::msg::Quaternion ToQuaternion(
+geometry_msgs::msg::Quaternion toQuaternion(
   const geometry_msgs::msg::Point & or1,
   const geometry_msgs::msg::Point & or2,
   const geometry_msgs::msg::Point & or3)
@@ -67,7 +67,7 @@ geometry_msgs::msg::Quaternion ToQuaternion(
   return result;
 }
 
-geometry_msgs::msg::Point PoseDiff(
+geometry_msgs::msg::Point poseDiff(
   const geometry_msgs::msg::Point & pos1,
   const geometry_msgs::msg::Point & pos2, bool coord_trans)
 {
@@ -77,13 +77,13 @@ geometry_msgs::msg::Point PoseDiff(
   result.z = pos1.z - pos2.z;
 
   if (coord_trans) {
-    CameraToRobot(result);
+    cameraToRobot(result);
   }
 
   return result;
 }
 
-geometry_msgs::msg::Point CrossProduct(
+geometry_msgs::msg::Point crossProduct(
   const geometry_msgs::msg::Point & pos1,
   const geometry_msgs::msg::Point & pos2, bool normalize)
 {

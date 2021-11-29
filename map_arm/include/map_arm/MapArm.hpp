@@ -36,6 +36,7 @@
 namespace filter_points
 {
 
+// TODO(kovacsge11) maybe derive from ROS2BaseNode
 class MapArm : public rclcpp::Node
 {
 public:
@@ -56,13 +57,13 @@ private:
     visualization_msgs::msg::MarkerArray::SharedPtr msg);
   void calculateJoints12(
     std::vector<double> & joint_state,
-    geometry_msgs::msg::Point elbow_rel_pos);
+    const geometry_msgs::msg::Point & elbow_rel_pos);
   void calculateJoints34(
     std::vector<double> & joint_state,
-    geometry_msgs::msg::Point wrist_rel_pos);
+    const geometry_msgs::msg::Point & wrist_rel_pos);
   void calculateJoints56(
     std::vector<double> & joint_state,
-    geometry_msgs::msg::Point handtip_rel_pos);
+    const geometry_msgs::msg::Point & handtip_rel_pos);
 
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr manage_processing_service_;

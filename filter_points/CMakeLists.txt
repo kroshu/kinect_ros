@@ -21,7 +21,6 @@ include_directories(include)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
 
 add_library(utils SHARED
   src/GeometryUtils.cpp)

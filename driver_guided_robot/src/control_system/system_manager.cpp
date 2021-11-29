@@ -122,7 +122,7 @@ SystemManager::on_activate(const rclcpp_lifecycle::State & state)
   if (!robot_control_active_ && !changeRobotCommandingState(true)) {
     return ERROR;
   }
-  polling_thread_ = std::thread(&SystemManager::MonitoringLoop, this);
+  polling_thread_ = std::thread(&SystemManager::monitoringLoop, this);
   robot_control_active_ = true;
   auto setBool_request =
     std::make_shared<std_srvs::srv::SetBool::Request>();
@@ -200,10 +200,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn System
   return SUCCESS;
 }
 
-void SystemManager::MonitoringLoop()
+void SystemManager::monitoringLoop()
 {
   while (this->get_current_state().label() == "active") {
-    GetFRIState();
+    getFRIState();
     std::this_thread::sleep_for(sleeping_time_ms_);
   }
   RCLCPP_WARN(get_logger(), "Stopping monitoring loop");
@@ -237,7 +237,7 @@ bool SystemManager::changeState(
   }
 }
 
-void SystemManager::GetFRIState()
+void SystemManager::getFRIState()
 {
   while (!get_state_client_->wait_for_service(std::chrono::milliseconds(1000))) {
     if (!rclcpp::ok()) {

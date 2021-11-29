@@ -202,20 +202,20 @@ void MapArm::markersReceivedCallback(
     sensor_msgs::msg::JointState reference;
     std::vector<double> joint_state(7);
 
-    auto elbow_rel_pos = PoseDiff(
+    auto elbow_rel_pos = poseDiff(
       elbow_it->pose.position,
       shoulder_it->pose.position);
 
     calculateJoints12(joint_state, elbow_rel_pos);
 
-    auto wrist_rel_pos = PoseDiff(
+    auto wrist_rel_pos = poseDiff(
       wrist_it->pose.position,
       elbow_it->pose.position);
 
     calculateJoints34(joint_state, wrist_rel_pos);
 
     // Calculate joints 5 and 6
-    auto handtip_rel_pos = PoseDiff(
+    auto handtip_rel_pos = poseDiff(
       handtip_it->pose.position,
       wrist_it->pose.position);
 
@@ -227,7 +227,7 @@ void MapArm::markersReceivedCallback(
 
     // Stop if left hand is raised
     if (stop_it != msg->markers.end()) {
-      auto left_stop = PoseDiff(stop_it->pose.position, shoulder_it->pose.position);
+      auto left_stop = poseDiff(stop_it->pose.position, shoulder_it->pose.position);
       if (left_stop.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
         change_state_client_->async_send_request(trigger_request_);
@@ -239,10 +239,10 @@ void MapArm::markersReceivedCallback(
     }
 
     // If cartesian distance is small, do not send new commands
-    auto rel_pose = PoseDiff(
+    auto rel_pose = poseDiff(
       handtip_it->pose.position,
       shoulder_it->pose.position);
-    auto delta = PoseDiff(rel_pose, prev_rel_pose_);
+    auto delta = poseDiff(rel_pose, prev_rel_pose_);
     double delta_len = sqrt(
       delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 
@@ -266,7 +266,7 @@ void MapArm::markersReceivedCallback(
 
 void MapArm::calculateJoints12(
   std::vector<double> & joint_state,
-  geometry_msgs::msg::Point elbow_rel_pos)
+  const geometry_msgs::msg::Point & elbow_rel_pos)
 {
   if (abs(elbow_rel_pos.x) > 0.03 || abs(elbow_rel_pos.y) > 0.03) {
     joint_state[0] = atan2(elbow_rel_pos.y, elbow_rel_pos.x);
@@ -286,7 +286,7 @@ void MapArm::calculateJoints12(
 
 void MapArm::calculateJoints34(
   std::vector<double> & joint_state,
-  geometry_msgs::msg::Point wrist_rel_pos)
+  const geometry_msgs::msg::Point & wrist_rel_pos)
 {
   Eigen::AngleAxisd rot1(-joint_state[0], Eigen::Vector3d::UnitZ());
   Eigen::AngleAxisd rot2(-joint_state[1], Eigen::Vector3d::UnitY());
@@ -312,7 +312,7 @@ void MapArm::calculateJoints34(
 
 void MapArm::calculateJoints56(
   std::vector<double> & joint_state,
-  geometry_msgs::msg::Point handtip_rel_pos)
+  const geometry_msgs::msg::Point & handtip_rel_pos)
 {
   Eigen::AngleAxisd rot1(-joint_state[0], Eigen::Vector3d::UnitZ());
   Eigen::AngleAxisd rot2(-joint_state[1], Eigen::Vector3d::UnitY());
