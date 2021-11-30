@@ -60,8 +60,8 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change");
 
-  prev_rel_pose_.x = prev_rel_pose_.y =
-    prev_rel_pose_.z = 0;
+  prev_rel_pos_.x = prev_rel_pos_.y =
+    prev_rel_pos_.z = 0;
 
   this->declare_parameter(
     "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
@@ -239,15 +239,15 @@ void MapArm::markersReceivedCallback(
     }
 
     // If cartesian distance is small, do not send new commands
-    auto rel_pose = poseDiff(
+    auto rel_pos = poseDiff(
       handtip_it->pose.position,
       shoulder_it->pose.position);
-    auto delta = poseDiff(rel_pose, prev_rel_pose_);
+    auto delta = poseDiff(rel_pos, prev_rel_pos_);
     double delta_len = sqrt(
       delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 
     if (delta_len > 0.01) {
-      prev_rel_pose_ = rel_pose;
+      prev_rel_pos_ = rel_pos;
       RCLCPP_INFO(get_logger(), "Reference published");
       reference_publisher_->publish(reference);
     } else {
@@ -291,17 +291,17 @@ void MapArm::calculateJoints34(
   Eigen::AngleAxisd rot1(-joint_state[0], Eigen::Vector3d::UnitZ());
   Eigen::AngleAxisd rot2(-joint_state[1], Eigen::Vector3d::UnitY());
   Eigen::Matrix3d rot = rot2.toRotationMatrix() * rot1.toRotationMatrix();
-  Eigen::Vector3d global_pos(wrist_rel_pos.x, wrist_rel_pos.y, wrist_rel_pos.z);
-  Eigen::Vector3d e_rel_pos = rot * global_pos;
+  Eigen::Vector3d wrist_rel_pos_glob(wrist_rel_pos.x, wrist_rel_pos.y, wrist_rel_pos.z);
+  Eigen::Vector3d w_rel_pos_loc = rot * wrist_rel_pos_glob;
 
-  if (abs(e_rel_pos[0]) > 0.03 || abs(e_rel_pos[1]) > 0.03) {
-    joint_state[2] = atan2(-e_rel_pos[1], -e_rel_pos[0]);
+  if (abs(w_rel_pos_loc[0]) > 0.03 || abs(w_rel_pos_loc[1]) > 0.03) {
+    joint_state[2] = atan2(-w_rel_pos_loc[1], -w_rel_pos_loc[0]);
   } else {
     joint_state[2] = prev_joint_state_[2];
   }
   joint_state[3] = atan2(
-    sqrt(pow(e_rel_pos[0], 2) + pow(e_rel_pos[1], 2)),
-    e_rel_pos[2]);
+    sqrt(pow(w_rel_pos_loc[0], 2) + pow(w_rel_pos_loc[1], 2)),
+    w_rel_pos_loc[2]);
 
   for (int i = 2; i < 4; i++) {
     int factor = static_cast<int>(moving_avg_depth_[i]) + 1;
@@ -318,33 +318,33 @@ void MapArm::calculateJoints56(
   Eigen::AngleAxisd rot2(-joint_state[1], Eigen::Vector3d::UnitY());
   Eigen::AngleAxisd rot3(-joint_state[2], Eigen::Vector3d::UnitZ());
   Eigen::AngleAxisd rot4(joint_state[3], Eigen::Vector3d::UnitY());
-  Eigen::Matrix3d rot_2 = rot4.toRotationMatrix() * rot3.toRotationMatrix() *
+  Eigen::Matrix3d rot = rot4.toRotationMatrix() * rot3.toRotationMatrix() *
     rot2.toRotationMatrix() * rot1.toRotationMatrix();
-  Eigen::Vector3d h_global_pos(handtip_rel_pos.x, handtip_rel_pos.y,
+  Eigen::Vector3d h_rel_pos_glob(handtip_rel_pos.x, handtip_rel_pos.y,
     handtip_rel_pos.z);
-  Eigen::Vector3d h_rel_pos = rot_2 * h_global_pos;
+  Eigen::Vector3d h_rel_pos_loc = rot * h_rel_pos_glob;
 
-  joint_state[4] = atan2(abs(h_rel_pos[1]), abs(h_rel_pos[0]));
+  joint_state[4] = atan2(abs(h_rel_pos_loc[1]), abs(h_rel_pos_loc[0]));
 
-  if (abs(h_rel_pos[1]) > abs(h_rel_pos[0])) {
-    if (h_rel_pos[1] > 0) {
+  if (abs(h_rel_pos_loc[1]) > abs(h_rel_pos_loc[0])) {
+    if (h_rel_pos_loc[1] > 0) {
       joint_state[5] = atan2(
-        sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
-        h_rel_pos[2]);
+        sqrt(pow(h_rel_pos_loc[0], 2) + pow(h_rel_pos_loc[1], 2)),
+        h_rel_pos_loc[2]);
     } else {
       joint_state[5] = -atan2(
-        sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
-        h_rel_pos[2]);
+        sqrt(pow(h_rel_pos_loc[0], 2) + pow(h_rel_pos_loc[1], 2)),
+        h_rel_pos_loc[2]);
     }
   } else {
-    if (h_rel_pos[0] > 0) {
+    if (h_rel_pos_loc[0] > 0) {
       joint_state[5] = atan2(
-        sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
-        h_rel_pos[2]);
+        sqrt(pow(h_rel_pos_loc[0], 2) + pow(h_rel_pos_loc[1], 2)),
+        h_rel_pos_loc[2]);
     } else {
       joint_state[5] = -atan2(
-        sqrt(pow(h_rel_pos[0], 2) + pow(h_rel_pos[1], 2)),
-        h_rel_pos[2]);
+        sqrt(pow(h_rel_pos_loc[0], 2) + pow(h_rel_pos_loc[1], 2)),
+        h_rel_pos_loc[2]);
     }
   }
 
