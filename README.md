@@ -119,14 +119,14 @@ As the previous solution was also too slow and not accurate enough, planning was
 
 In some cases, the result was still not good enough, mainly because the workspace of the robot and human arms are different and the joint states are not deterministic. Therefore there are positions for the robot arm, from which a nearby cartesian position can be reached only with big joint state changes. This increases latency and decreases the efficiency of the endpoint tracking.
 
-Now the relative position of the robot endpoint is calculated from the distance of the human handtip and the navel. Replacing the navel with the shoulder and applying a scaling factor (the robot arm is bigger) would result in a better tracking visually, but the undeterministic joint angles would still cause some latency problems.
+This approach was implemented on the follow_endpoint branch, the technical details are the following:
+
+The joint_controller can process only joint positions as input, so from the cartesian position and orientation joint positions must be calculated. The moveit_with_markerpos node does these calculation with the help of moveit and the KDL inverse kinematics plugin. The trajectory execution (control) is done by the robot_control node and the FRI, while the joint_controller can interpolate by bigger distances, so the main goal for this node is to calculate the inverse kinematics for the given position closest to the actual robot state. The problem is that by only one calculation, the consecutive solutions can be very far from each other in the joint space, as the 7-DOF robot arm has one free degree of freedom and countless valid solutions are possible, a lot of which could be at similiar distance from the actual position. That would result in a very jerky movement, taking a lot of time to reach the desired position. To avoid this behaviour, multiple inverse kinematics solution are calculated, and the closest to the previous one is selected. (This is the main reason for not using moveit planning, as it takes much more time than only the inverse kinematics and 5 planning calculations would increase the latency considerably. As there are no objects in the robot workspace to collide with, planning can be skipped without problems.) The relative position of the robot endpoint is calculated from the distance of the human handtip and the navel. Replacing the navel with the shoulder and applying a scaling factor (the robot arm is bigger) would result in a better tracking visually, but the undeterministic joint angles would still cause some latency problems.
 
 ### 6. Own inverse kinematic calculations- full arm mapping (map_arm branch)
 
 Deterministic joint angles can be achieved by specific mathematical formulas, which are not included in any package, so own calculations are needed. Because of the difference in size and the 7 degrees of freedom, these formulas are better calculated for the full arm tracking as for only the endpoint following. The robot arm's joint limits are much bigger than that of the human arm, so a full mapping should be possible, with the angles at the shoulder, elbow and wrist identical. This resulted in deterministic joint angles with the pose of the arms identical with small limitations.
-
-## Planning and inverse kinematics for endpoint following (5. approach on follow_endpoint branch)
-The joint_controller can process only joint positions as input, so from the cartesian position and orientation joint positions must be calculated. The moveit_with_markerpos node does these calculation with the help of moveit and the KDL inverse kinematics plugin. The trajectory execution (control) is done by the robot_control node and the FRI, while the joint_controller can interpolate by bigger distances, so the main goal for this node is to calculate the inverse kinematics for the given position closest to the actual robot state. The problem is that by only one calculation, the consecutive solutions can be very far from each other in the joint space, as the 7-DOF robot arm has one free degree of freedom and countless valid solutions are possible, a lot of which could be at similiar distance from the actual position. That would result in a very jerky movement, taking a lot of time to reach the desired position. To avoid this behaviour, multiple inverse kinematics solution are calculated, and the closest to the previous one is selected. (This is the main reason for not using moveit planning, as it takes much more time than only the inverse kinematics and 5 planning calculations would increase the latency considerably. As there are no objects in the robot workspace to collide with, planning can be skipped without problems.)
+This approach was the most promising, the required calculations are detailed in the next section.
 
 ## Full arm tracking: the Inverse Kinematics Calculations
 
@@ -214,7 +214,7 @@ By the construction of the structure, modularity was a key aspect, so the nodes 
 </p>
 
 </p>
- <em>The full structure of the nodes. The blue ones are the driver nodes, which can't be changed or replaced for full functionality. The purple nodes are for the processing of the image and calculating the reference joint positions, these are repracable</em>
+ <em>The full structure of the nodes. The blue ones are the driver nodes, which can't be changed or replaced for full functionality. The green nodes are for the processing of the image and calculating the reference joint positions, these are repracable</em>
 </p>
 
 
