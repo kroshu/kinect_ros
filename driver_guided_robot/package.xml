@@ -3,7 +3,7 @@
 <package format="3">
   <name>driver_guided_robot</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Package for managing the connection between ROS and KUKA Sunrise FRI</description>
   <maintainer email="svastits1@gmail.com">Aron Svastits</maintainer>
   <license>Apache 2.0</license>
 
