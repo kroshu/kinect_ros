@@ -25,11 +25,16 @@
 #include <cmath>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/serialization.hpp"
+#include "rosbag2_cpp/writer.hpp"
+#include "rosbag2_cpp/writers/sequential_writer.hpp"
+#include "rosbag2_storage/serialized_bag_message.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "std_srvs/srv/set_bool.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 #include "utils/GeometryUtils.hpp"
 
 
@@ -45,10 +50,12 @@ public:
 private:
   bool valid_ = true;
   bool motion_started_ = false;
+  bool record_ = false;
   std::vector<double> prev_joint_state_ = std::vector<double>(7);
   // int is not supported for vectors, only uint8_t or long
   std::vector<int64_t> moving_avg_depth_ = std::vector<int64_t>(7);
   geometry_msgs::msg::Point prev_rel_pos_;
+  std::unique_ptr<rosbag2_cpp::writers::SequentialWriter> rosbag_writer_;
 
   rcl_interfaces::msg::SetParametersResult onParamChange(
     const std::vector<rclcpp::Parameter> & parameters);

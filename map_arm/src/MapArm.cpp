@@ -52,6 +52,10 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
         RCLCPP_WARN(
           this->get_logger(),
           "LBR state is not 4, reactivate or restart system manager!");
+        if (record_) {
+          record_ = false;
+          // rosbag_writer_->split_bagfile;
+        }
       }
       response->success = true;
     };
@@ -71,6 +75,18 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
     [this](const std::vector<rclcpp::Parameter> & parameters) {
       return this->onParamChange(parameters);
     });
+
+  const rosbag2_cpp::ConverterOptions converter_options(
+    {rmw_get_serialization_format(),
+      rmw_get_serialization_format()});
+  const std::string file_name = "replay" +
+    std::to_string(this->now().seconds());
+  const rosbag2_cpp::StorageOptions storage_options({"replay", "sqlite3"});
+  rosbag_writer_ = std::make_unique<rosbag2_cpp::writers::SequentialWriter>();
+  rosbag_writer_->open(storage_options, converter_options);
+  rosbag_writer_->create_topic(
+    {"reference_joint_state", "std_msgs/Float64MultiArray",
+      rmw_get_serialization_format(), ""});
 }
 
 rcl_interfaces::msg::SetParametersResult MapArm::onParamChange(
@@ -185,7 +201,7 @@ void MapArm::markersReceivedCallback(
       static_cast<int>(BODY_TRACKING_JOINTS::HAND_RIGHT);
     });
 
-  auto stop_it = std::find_if(
+  auto left_hand_it = std::find_if(
     msg->markers.begin(), msg->markers.end(),
     [](const visualization_msgs::msg::Marker & marker) {
       int joint_id = marker.id % 100;
@@ -225,10 +241,17 @@ void MapArm::markersReceivedCallback(
     joint_state[6] = 0;
     reference.position = joint_state;
 
-    // Stop if left hand is raised
-    if (stop_it != msg->markers.end()) {
-      auto left_stop = poseDiff(stop_it->pose.position, shoulder_it->pose.position);
-      if (left_stop.z > 0.4) {
+    if (left_hand_it != msg->markers.end()) {
+      auto left_hand = poseDiff(
+        left_hand_it->pose.position,
+        shoulder_it->pose.position);
+      // Start recording if left hand is raised vertically left
+      if (left_hand.y > 0.9 && !record_) {
+        RCLCPP_INFO(get_logger(), "Starting recording");
+        record_ = true;
+      }
+      // Stop if left hand is raised upwards
+      if (left_hand.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
         change_state_client_->async_send_request(trigger_request_);
       }
@@ -236,6 +259,33 @@ void MapArm::markersReceivedCallback(
       RCLCPP_WARN(
         get_logger(),
         "Left handtip joint not found, stopping not possible that way");
+    }
+
+    if (record_) {
+      auto message = std::make_shared<rosbag2_storage::SerializedBagMessage>();
+      auto serializer = rclcpp::Serialization<std_msgs::msg::Float64MultiArray>();
+      auto serialized_message = rclcpp::SerializedMessage();
+      // TODO(Svastits): is this converision necessary? create own type?
+      std_msgs::msg::Float64MultiArray ref;
+      ref.data = reference.position;
+      serializer.serialize_message(&ref, &serialized_message);
+
+      message->serialized_data = std::shared_ptr<rcutils_uint8_array_t>(
+        new rcutils_uint8_array_t,
+        [](rcutils_uint8_array_t * msg) {
+          auto fini_return = rcutils_uint8_array_fini(msg);
+          delete msg;
+          if (fini_return != RCUTILS_RET_OK) {
+            std::cerr << "Failed to destroy serialized message " <<
+            rcutils_get_error_string().str;
+          }
+        });
+      *message->serialized_data =
+        serialized_message.release_rcl_serialized_message();
+
+      message->topic_name = "reference_joint_state";
+      message->time_stamp = this->now().nanoseconds();
+      rosbag_writer_->write(message);
     }
 
     // If cartesian distance is small, do not send new commands
