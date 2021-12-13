@@ -31,13 +31,15 @@ public:
   ReplayMotion(const std::string & node_name, const rclcpp::NodeOptions & options);
 
 private:
-  bool init_ = true;
+  bool reached_start_ = false;
   rclcpp::TimerBase::SharedPtr timer_;
   void timerCallback();
   double rate_ = 1;
   std::ifstream csv_in_;
   sensor_msgs::msg::JointState reference_;
+  sensor_msgs::msg::JointState::SharedPtr measured_joint_state_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
+  rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr measured_joint_state_listener_;
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
 };
 }  // namespace replay_motion
