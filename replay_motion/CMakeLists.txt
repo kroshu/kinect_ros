@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(map_arm)
+project(replay_motion)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -18,21 +18,16 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(visualization_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
-find_package(filter_points REQUIRED)
-find_package(Eigen3 3.3 REQUIRED)
-find_package(rosbag2_cpp REQUIRED)
+
 
 include_directories(include)
 
-add_executable(map_arm src/MapArm.cpp)
-ament_target_dependencies(map_arm rclcpp visualization_msgs std_srvs sensor_msgs rosbag2_cpp)
-target_link_libraries(map_arm filter_points::utils Eigen3::Eigen)
+add_executable(replay_motion src/ReplayMotion.cpp)
+ament_target_dependencies(replay_motion rclcpp sensor_msgs)
 
-install(TARGETS map_arm
-  DESTINATION lib/${PROJECT_NAME})
+install(TARGETS replay_motion
+    DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_copyright REQUIRED)

@@ -79,14 +79,20 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   const rosbag2_cpp::ConverterOptions converter_options(
     {rmw_get_serialization_format(),
       rmw_get_serialization_format()});
-  const std::string file_name = "replay" +
-    std::to_string(this->now().seconds());
   const rosbag2_cpp::StorageOptions storage_options({"replay", "sqlite3"});
   rosbag_writer_ = std::make_unique<rosbag2_cpp::writers::SequentialWriter>();
-  rosbag_writer_->open(storage_options, converter_options);
-  rosbag_writer_->create_topic(
-    {"reference_joint_state", "std_msgs/Float64MultiArray",
-      rmw_get_serialization_format(), ""});
+  try {
+    rosbag_writer_->open(storage_options, converter_options);
+    rosbag_writer_->create_topic(
+      {"reference_joint_state", "std_msgs/Float64MultiArray",
+        rmw_get_serialization_format(), ""});
+  } catch (const std::runtime_error & e) {
+    RCLCPP_ERROR(
+      this->get_logger(), "Unable to create DB");
+    RCLCPP_ERROR(
+      this->get_logger(), "Remove previous DB or create the parent folder!");
+    rclcpp::shutdown();
+  }
 }
 
 rcl_interfaces::msg::SetParametersResult MapArm::onParamChange(
