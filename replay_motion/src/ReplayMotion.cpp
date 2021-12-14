@@ -20,25 +20,27 @@
 #include <algorithm>
 
 
-// TODO(Svastits): parameter rate
 // TODO(Svastits): parameters loop and loop_count
 // TODO(Svastits): more csv files with wait between
 // TODO(Svastits): csv file: handle if more than 7 columns
 // TODO(Svastits): joint limits? -> can get into endless loop
 
+std::string getLastLine(std::ifstream & in)
+{
+  std::string line;
+  while (std::getline(in, line)) {}
+
+  return line;
+}
+
 namespace replay_motion
 {
-
 ReplayMotion::ReplayMotion(
   const std::string & node_name,
   const rclcpp::NodeOptions & options)
 : rclcpp::Node(node_name, options)
 {
   csv_in_.open("replay.csv");
-  auto callback = [this]() {
-      this->timerCallback();
-    };
-
   std::string line, value;
   std::vector<double> joint_angles;
   if (std::getline(csv_in_, line)) {
@@ -46,7 +48,11 @@ ReplayMotion::ReplayMotion(
     while (std::getline(s, value, ',')) {
       joint_angles.push_back(std::stod(value));
     }
-    reference_.position = joint_angles;
+
+    reference_ = std::make_shared<sensor_msgs::msg::JointState>();
+    reference_->position.resize(7);
+    reference_->position = joint_angles;
+    measured_joint_state_ = reference_;
 
     reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
       "reference_joint_state", qos_);
@@ -61,11 +67,23 @@ ReplayMotion::ReplayMotion(
     int duration_us = static_cast<int>(125000 / rate_);  // default rate is 8Hz (125 ms)
     timer_ = this->create_wall_timer(
       std::chrono::microseconds(duration_us),
-      callback);
+      [this]() {
+        this->timerCallback();
+      });
     RCLCPP_INFO(
       this->get_logger(), "Starting publishing with a rate of %lf Hz",
       static_cast<double>(1000000 / duration_us));
   }
+
+  param_callback_ = this->add_on_set_parameters_callback(
+    [this](const std::vector<rclcpp::Parameter> & parameters) {
+      return this->onParamChange(parameters);
+    });
+
+  this->declare_parameter(
+    "rate", rclcpp::ParameterValue(rate_));
+  this->declare_parameter(
+    "repet_count", rclcpp::ParameterValue(repeat_count_));
 }
 
 void ReplayMotion::timerCallback()
@@ -75,11 +93,11 @@ void ReplayMotion::timerCallback()
     sensor_msgs::msg::JointState to_start;
     std::vector<double> joint_error;
     for (int i = 0; i < 7; i++) {
-      double dist = reference_.position[i] - measured_joint_state_->position[i];
+      double dist = reference_->position[i] - measured_joint_state_->position[i];
       dist_sum += pow(dist, 2);
       joint_error.push_back(
         measured_joint_state_->position[i] +
-        ((dist > 0) - (dist < 0)) * std::min(0.03, abs(dist)));
+        ((dist > 0) - (dist < 0)) * std::min(0.03 / rate_, abs(dist)));
       // TODO(Svastits): parameter for max speed at beginning
     }
     // (dist > 0) - (dist < 0) is sgn function
@@ -93,7 +111,7 @@ void ReplayMotion::timerCallback()
       reference_publisher_->publish(to_start);
     }
   } else {
-    reference_publisher_->publish(reference_);
+    reference_publisher_->publish(*reference_);
 
     std::string line, value;
     std::vector<double> joint_angles;
@@ -102,7 +120,7 @@ void ReplayMotion::timerCallback()
       while (std::getline(s, value, ',')) {
         joint_angles.push_back(std::stod(value));
       }
-      reference_.position = joint_angles;
+      reference_->position = joint_angles;
     } else {
       rclcpp::shutdown();
       RCLCPP_INFO(
@@ -112,6 +130,96 @@ void ReplayMotion::timerCallback()
   }
 }
 
+rcl_interfaces::msg::SetParametersResult ReplayMotion::onParamChange(
+  const std::vector<rclcpp::Parameter> & parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+  for (const rclcpp::Parameter & param : parameters) {
+    if (param.get_name() == "rate") {
+      result.successful = onRateChangeRequest(param);
+    } else if (param.get_name() == "repeat_count") {
+      result.successful = onRepeatCountChangeRequest(param);
+    } else {
+      RCLCPP_ERROR(
+        this->get_logger(), "Invalid parameter name %s",
+        param.get_name().c_str());
+      result.successful = false;
+    }
+  }
+  return result;
+}
+
+bool ReplayMotion::onRateChangeRequest(const rclcpp::Parameter & param)
+{
+  if (param.get_type() !=
+    rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+  {
+    RCLCPP_ERROR(
+      this->get_logger(), "Invalid parameter type for parameter %s",
+      param.get_name().c_str());
+    return false;
+  }
+  if (param.as_double() < 0.2 || param.as_double() > 5) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Invalid parameter value for parameter %s",
+      param.get_name().c_str());
+    RCLCPP_ERROR(this->get_logger(), "0.2 < rate < 5 must be true");
+    return false;
+  }
+
+  rate_ = param.as_double();
+  return true;
+}
+
+bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
+{
+  if (param.get_type() !=
+    rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+  {
+    RCLCPP_ERROR(
+      this->get_logger(), "Invalid parameter type for parameter %s",
+      param.get_name().c_str());
+    return false;
+  }
+  if (reached_start_) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "The repeat count can't be changed if motion has already started",
+      param.get_name().c_str());
+    return false;
+  }
+  if (param.as_int()) {
+    std::ifstream csv_last;
+    csv_last.open("replay.csv");
+    std::string value;
+    std::string line = getLastLine(csv_last);
+    std::vector<double> joint_angles;
+    std::stringstream s(line);
+    while (std::getline(s, value, ',')) {
+      joint_angles.push_back(std::stod(value));
+    }
+    double dist_sum = 0;
+    for (int i = 0; i < 7; i++) {
+      double dist = reference_->position[i] -
+        joint_angles[i];
+      dist_sum += pow(dist, 2);
+
+      if (dist_sum > 0.1) {
+        RCLCPP_ERROR(
+          this->get_logger(),
+          "The deviation of start and end of motion is too big");
+        RCLCPP_ERROR(
+          this->get_logger(),
+          "Can't set repeat for this motion");
+        return false;
+      }
+    }
+  }
+  repeat_count_ = param.as_int();
+  return true;
+}
 }  // namespace replay_motion
 
 int main(int argc, char * argv[])

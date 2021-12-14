@@ -32,15 +32,21 @@ public:
 
 private:
   bool reached_start_ = false;
+  int repeat_count_ = 0;  // negative numbers mean repeat infinitely
   rclcpp::TimerBase::SharedPtr timer_;
   void timerCallback();
   double rate_ = 1;
   std::ifstream csv_in_;
-  sensor_msgs::msg::JointState reference_;
+  sensor_msgs::msg::JointState::SharedPtr reference_;
   sensor_msgs::msg::JointState::SharedPtr measured_joint_state_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr measured_joint_state_listener_;
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
+  rcl_interfaces::msg::SetParametersResult onParamChange(
+    const std::vector<rclcpp::Parameter> & parameters);
+  bool onRateChangeRequest(const rclcpp::Parameter & param);
+  bool onRepeatCountChangeRequest(const rclcpp::Parameter & param);
 };
 }  // namespace replay_motion
 
