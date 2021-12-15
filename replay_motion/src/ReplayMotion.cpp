@@ -83,7 +83,7 @@ ReplayMotion::ReplayMotion(
   this->declare_parameter(
     "rate", rclcpp::ParameterValue(rate_));
   this->declare_parameter(
-    "repet_count", rclcpp::ParameterValue(repeat_count_));
+    "repeat_count", rclcpp::ParameterValue(repeat_count_));
 }
 
 void ReplayMotion::timerCallback()
