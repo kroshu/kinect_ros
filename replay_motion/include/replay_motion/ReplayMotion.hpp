@@ -47,6 +47,14 @@ private:
     const std::vector<rclcpp::Parameter> & parameters);
   bool onRateChangeRequest(const rclcpp::Parameter & param);
   bool onRepeatCountChangeRequest(const rclcpp::Parameter & param);
+  bool checkJointLimits(const std::vector<double> & angles);
+
+  std::vector<double> lower_limits_rad_ = std::vector<double>(
+    {-2.67, -1.88,
+      -2.67, -1.88, -2.67, -1.88, -2.74});
+  std::vector<double> upper_limits_rad_ = std::vector<double>(
+    {2.67, 1.88,
+      2.67, 1.88, 2.67, 1.88, 2.74});
 };
 }  // namespace replay_motion
 

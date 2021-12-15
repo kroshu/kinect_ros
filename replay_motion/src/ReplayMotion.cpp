@@ -19,16 +19,13 @@
 #include <vector>
 #include <algorithm>
 
-
-// TODO(Svastits): parameters loop and loop_count
 // TODO(Svastits): more csv files with wait between
 // TODO(Svastits): csv file: handle if more than 7 columns
-// TODO(Svastits): joint limits? -> can get into endless loop
 
 std::string getLastLine(std::ifstream & in)
 {
   std::string line;
-  while (std::getline(in, line)) {}
+  while (in >> std::ws && std::getline(in, line)) {}
 
   return line;
 }
@@ -53,26 +50,13 @@ ReplayMotion::ReplayMotion(
     reference_->position.resize(7);
     reference_->position = joint_angles;
     measured_joint_state_ = reference_;
-
-    reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
-      "reference_joint_state", qos_);
-
-    measured_joint_state_listener_ = this->create_subscription<
-      sensor_msgs::msg::JointState>(
-      "lbr_joint_state", qos_,
-      [this](sensor_msgs::msg::JointState::SharedPtr state) {
-        measured_joint_state_ = state;
-      });
-
-    int duration_us = static_cast<int>(125000 / rate_);  // default rate is 8Hz (125 ms)
-    timer_ = this->create_wall_timer(
-      std::chrono::microseconds(duration_us),
-      [this]() {
-        this->timerCallback();
-      });
-    RCLCPP_INFO(
-      this->get_logger(), "Starting publishing with a rate of %lf Hz",
-      static_cast<double>(1000000 / duration_us));
+    if (!checkJointLimits(joint_angles)) {
+      RCLCPP_ERROR(this->get_logger(), "First point is exceeding limits, stopping node");
+      rclcpp::shutdown();
+    }
+  } else {
+    RCLCPP_ERROR(this->get_logger(), "File is empty, stopping node");
+    rclcpp::shutdown();
   }
 
   param_callback_ = this->add_on_set_parameters_callback(
@@ -80,10 +64,30 @@ ReplayMotion::ReplayMotion(
       return this->onParamChange(parameters);
     });
 
+  this->declare_parameter("rate", rclcpp::ParameterValue(rate_));
   this->declare_parameter(
-    "rate", rclcpp::ParameterValue(rate_));
-  this->declare_parameter(
-    "repeat_count", rclcpp::ParameterValue(repeat_count_));
+    "repeat_count",
+    rclcpp::ParameterValue(repeat_count_));
+
+  reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
+    "reference_joint_state", qos_);
+
+  measured_joint_state_listener_ = this->create_subscription<
+    sensor_msgs::msg::JointState>(
+    "lbr_joint_state", qos_,
+    [this](sensor_msgs::msg::JointState::SharedPtr state) {
+      measured_joint_state_ = state;
+    });
+
+  int duration_us = static_cast<int>(125000 / rate_);  // default rate is 8Hz (125 ms)
+  timer_ = this->create_wall_timer(
+    std::chrono::microseconds(duration_us),
+    [this]() {
+      this->timerCallback();
+    });
+  RCLCPP_INFO(
+    this->get_logger(), "Starting publishing with a rate of %lf Hz",
+    static_cast<double>(1000000 / duration_us));
 }
 
 void ReplayMotion::timerCallback()
@@ -93,7 +97,8 @@ void ReplayMotion::timerCallback()
     sensor_msgs::msg::JointState to_start;
     std::vector<double> joint_error;
     for (int i = 0; i < 7; i++) {
-      double dist = reference_->position[i] - measured_joint_state_->position[i];
+      double dist = reference_->position[i] -
+        measured_joint_state_->position[i];
       dist_sum += pow(dist, 2);
       joint_error.push_back(
         measured_joint_state_->position[i] +
@@ -121,6 +126,22 @@ void ReplayMotion::timerCallback()
         joint_angles.push_back(std::stod(value));
       }
       reference_->position = joint_angles;
+    } else if (repeat_count_) {
+      if (repeat_count_ > 0) {
+        repeat_count_--;
+      }
+      csv_in_.close();
+      csv_in_.open("replay.csv");
+      std::string line, value;
+      if (std::getline(csv_in_, line)) {
+        std::stringstream s(line);
+        while (std::getline(s, value, ',')) {
+          joint_angles.push_back(std::stod(value));
+        }
+        reference_->position = joint_angles;
+        RCLCPP_INFO(this->get_logger(), "End of file reached, repeating");
+        RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
+      }
     } else {
       rclcpp::shutdown();
       RCLCPP_INFO(
@@ -133,6 +154,9 @@ void ReplayMotion::timerCallback()
 rcl_interfaces::msg::SetParametersResult ReplayMotion::onParamChange(
   const std::vector<rclcpp::Parameter> & parameters)
 {
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Param change callback");
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
   for (const rclcpp::Parameter & param : parameters) {
@@ -205,19 +229,27 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
       double dist = reference_->position[i] -
         joint_angles[i];
       dist_sum += pow(dist, 2);
+    }
 
-      if (dist_sum > 0.1) {
-        RCLCPP_ERROR(
-          this->get_logger(),
-          "The deviation of start and end of motion is too big");
-        RCLCPP_ERROR(
-          this->get_logger(),
-          "Can't set repeat for this motion");
-        return false;
-      }
+    if (dist_sum > 0.1) {
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "The deviation of start and end of motion is too big");
+      RCLCPP_ERROR(this->get_logger(), "Can't set repeat for this motion");
+      return false;
     }
   }
   repeat_count_ = param.as_int();
+  return true;
+}
+
+bool ReplayMotion::checkJointLimits(const std::vector<double> & angles)
+{
+  for (int i = 0; i < 7; i++) {
+    if (angles[i] < lower_limits_rad_[i] || angles[i] > upper_limits_rad_[i]) {
+      return false;
+    }
+  }
   return true;
 }
 }  // namespace replay_motion
