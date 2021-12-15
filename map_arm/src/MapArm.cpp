@@ -63,14 +63,14 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   prev_rel_pos_.x = prev_rel_pos_.y =
     prev_rel_pos_.z = 0;
 
-  this->declare_parameter(
-    "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
-      4, 4, 0});
-
   param_callback_ = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
       return this->onParamChange(parameters);
     });
+
+  this->declare_parameter(
+    "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
+      4, 4, 0});
 }
 
 rcl_interfaces::msg::SetParametersResult MapArm::onParamChange(
