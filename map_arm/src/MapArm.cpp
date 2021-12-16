@@ -54,7 +54,7 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
           "LBR state is not 4, reactivate or restart system manager!");
         if (record_) {
           record_ = false;
-          // rosbag_writer_->split_bagfile;
+          // TODO(Svsatits): start new bag with rosbag_writer_->split_bagfile;
         }
       }
       response->success = true;
@@ -276,14 +276,16 @@ void MapArm::markersReceivedCallback(
       ref.data = reference.position;
       serializer.serialize_message(&ref, &serialized_message);
 
-      message->serialized_data = std::shared_ptr<rcutils_uint8_array_t>(
+      message->serialized_data =
+        std::shared_ptr<rcutils_uint8_array_t>(
         new rcutils_uint8_array_t,
-        [](rcutils_uint8_array_t * msg) {
-          auto fini_return = rcutils_uint8_array_fini(msg);
-          delete msg;
+        [](rcutils_uint8_array_t * msg_data) {
+          auto fini_return = rcutils_uint8_array_fini(msg_data);
+          delete msg_data;
           if (fini_return != RCUTILS_RET_OK) {
-            std::cerr << "Failed to destroy serialized message " <<
-            rcutils_get_error_string().str;
+            RCLCPP_ERROR_STREAM(
+              get_logger(),
+              "Failed to destroy serialized message " << rcutils_get_error_string().str);
           }
         });
       *message->serialized_data =
