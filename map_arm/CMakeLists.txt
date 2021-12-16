@@ -22,7 +22,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(filter_points REQUIRED)
-find_package(Eigen3 3.3 REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 
 include_directories(include)
