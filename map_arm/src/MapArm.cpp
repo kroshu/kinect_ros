@@ -37,30 +37,13 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
     "reference_joint_state", qos_);
 
-  auto manage_proc_callback = [this](
-    const std::shared_ptr<rmw_request_id_t> request_header,
+  manage_processing_service_ = this->create_service<std_srvs::srv::SetBool>(
+    "manage_processing",
+    [this](const std::shared_ptr<rmw_request_id_t> request_header,
     std_srvs::srv::SetBool::Request::SharedPtr request,
     std_srvs::srv::SetBool::Response::SharedPtr response) {
-      (void) request_header;
-      if (request->data) {
-        valid_ = true;
-        RCLCPP_INFO(
-          this->get_logger(),
-          "System manager is active again, continuing motion");
-      } else {
-        valid_ = false;
-        RCLCPP_WARN(
-          this->get_logger(),
-          "LBR state is not 4, reactivate or restart system manager!");
-        if (record_) {
-          record_ = false;
-          // TODO(Svsatits): start new bag with rosbag_writer_->split_bagfile;
-        }
-      }
-      response->success = true;
-    };
-  manage_processing_service_ = this->create_service<std_srvs::srv::SetBool>(
-    "manage_processing", manage_proc_callback);
+      this->manageProcessingCallback(request_header, request, response);
+    });
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change");
 
@@ -320,6 +303,30 @@ void MapArm::markersReceivedCallback(
       "Missing joint from hand, stopping motion");
     change_state_client_->async_send_request(trigger_request_);
   }
+}
+
+void MapArm::manageProcessingCallback(
+  const std::shared_ptr<rmw_request_id_t> request_header,
+  std_srvs::srv::SetBool::Request::SharedPtr request,
+  std_srvs::srv::SetBool::Response::SharedPtr response)
+{
+  (void) request_header;
+  if (request->data) {
+    valid_ = true;
+    RCLCPP_INFO(
+      this->get_logger(),
+      "System manager is active again, continuing motion");
+  } else {
+    valid_ = false;
+    RCLCPP_WARN(
+      this->get_logger(),
+      "LBR state is not 4, reactivate or restart system manager!");
+    if (record_) {
+      record_ = false;
+      // TODO(Svsatits): start new bag with rosbag_writer_->split_bagfile;
+    }
+  }
+  response->success = true;
 }
 
 void MapArm::calculateJoints12(
