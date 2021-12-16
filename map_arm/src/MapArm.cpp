@@ -262,12 +262,12 @@ void MapArm::markersReceivedCallback(
       message->serialized_data =
         std::shared_ptr<rcutils_uint8_array_t>(
         new rcutils_uint8_array_t,
-        [](rcutils_uint8_array_t * msg_data) {
+        [this](rcutils_uint8_array_t * msg_data) {
           auto fini_return = rcutils_uint8_array_fini(msg_data);
           delete msg_data;
           if (fini_return != RCUTILS_RET_OK) {
             RCLCPP_ERROR_STREAM(
-              get_logger(),
+              this->get_logger(),
               "Failed to destroy serialized message " << rcutils_get_error_string().str);
           }
         });
