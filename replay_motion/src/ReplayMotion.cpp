@@ -26,7 +26,7 @@
 std::string getLastLine(std::ifstream & in)
 {
   std::string line;
-  while (in >> std::ws && std::getline(in, line)) {}
+  while (in >> std::ws && std::getline(in, line)) { /* skip lines until last */}
 
   return line;
 }
@@ -44,7 +44,8 @@ ReplayMotion::ReplayMotion(
     return;
   }
   csv_in_.open("replay.csv");
-  std::string line, value;
+  std::string line;
+  std::string value;
   std::vector<double> joint_angles;
   if (csv_in_ >> std::ws && std::getline(csv_in_, line)) {
     std::stringstream s(line);
@@ -143,24 +144,27 @@ void ReplayMotion::timerCallback()
   } else {
     reference_publisher_->publish(*reference_);
 
-    std::string line, value;
+    std::string line;
+    std::string value;
     std::vector<double> joint_angles;
-    if (std::getline(csv_in_, line)) {} else if (repeat_count_) {
-      if (repeat_count_ > 0) {
-        repeat_count_--;
-      }
-      csv_in_.close();
-      csv_in_.open("replay.csv");
-      std::getline(csv_in_, line);
+    if (!std::getline(csv_in_, line)) {
+      if (repeat_count_) {
+        if (repeat_count_ > 0) {
+          repeat_count_--;
+        }
+        csv_in_.close();
+        csv_in_.open("replay.csv");
+        std::getline(csv_in_, line);
 
-      RCLCPP_INFO(this->get_logger(), "End of file reached, repeating");
-      RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
-    } else {
-      RCLCPP_INFO(
-        this->get_logger(),
-        "End of file reached, stopping publishing");
-      rclcpp::shutdown();
-      return;
+        RCLCPP_INFO(this->get_logger(), "End of file reached, repeating");
+        RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
+      } else {
+        RCLCPP_INFO(
+          this->get_logger(),
+          "End of file reached, stopping publishing");
+        rclcpp::shutdown();
+        return;
+      }
     }
 
     std::stringstream s(line);

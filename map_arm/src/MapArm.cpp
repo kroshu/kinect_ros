@@ -71,9 +71,9 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
         rmw_get_serialization_format(), ""});
   } catch (const std::runtime_error & e) {
     RCLCPP_ERROR(
-      this->get_logger(), "Unable to create DB");
+      this->get_logger(), "Could not open DB for writing");
     RCLCPP_ERROR(
-      this->get_logger(), "Remove previous DB or create the parent folder!");
+      this->get_logger(), e.what());
     rclcpp::shutdown();
   }
 }
