@@ -21,6 +21,7 @@
 #include <fstream>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rcpputils/filesystem_helper.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 
 

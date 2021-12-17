@@ -14,7 +14,6 @@
 
 
 #include "replay_motion/ReplayMotion.hpp"
-#include <filesystem>
 #include <string>
 #include <memory>
 #include <vector>
@@ -39,7 +38,7 @@ ReplayMotion::ReplayMotion(
   const rclcpp::NodeOptions & options)
 : rclcpp::Node(node_name, options)
 {
-  if (!std::filesystem::exists("replay.csv")) {
+  if (!rcpputils::fs::exists(rcpputils::fs::path("replay.csv"))) {
     RCLCPP_ERROR(this->get_logger(), "File does not exist, stopping node");
     rclcpp::shutdown();
     return;
