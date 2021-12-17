@@ -72,7 +72,7 @@ ReplayMotion::ReplayMotion(
     reference_ = std::make_shared<sensor_msgs::msg::JointState>();
     reference_->position.resize(7);
     reference_->position = joint_angles;
-    measured_joint_state_ = reference_;
+    if (!measured_joint_state_) {measured_joint_state_ = reference_;}
     if (!checkJointLimits(joint_angles)) {
       RCLCPP_ERROR(this->get_logger(), "First point is exceeding limits, stopping node");
       rclcpp::shutdown();
@@ -117,6 +117,7 @@ ReplayMotion::ReplayMotion(
 
 void ReplayMotion::timerCallback()
 {
+  if (repeat_count_ < 0) {repeat_count_ = -1;}
   if (!reached_start_) {
     double dist_sum = 0;
     sensor_msgs::msg::JointState to_start;
@@ -149,9 +150,7 @@ void ReplayMotion::timerCallback()
     std::vector<double> joint_angles;
     if (!std::getline(csv_in_, line)) {
       if (repeat_count_) {
-        if (repeat_count_ > 0) {
-          repeat_count_--;
-        }
+        repeat_count_--;
         csv_in_.close();
         csv_in_.open("replay.csv");
         std::getline(csv_in_, line);
