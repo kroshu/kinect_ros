@@ -53,10 +53,10 @@ ReplayMotion::ReplayMotion(
     while (std::getline(s, value, ',')) {
       try {
         double_value = std::stod(value);
-      } catch (std::exception & e) {
-        RCLCPP_ERROR(
-          this->get_logger(),
-          "Could not convert to double, stopping node");
+      } catch (const std::invalid_argument &ia) {
+        RCLCPP_ERROR(this->get_logger(), ia.what());
+        RCLCPP_ERROR(this->get_logger(),
+            "Could not convert to double, stopping node");
         rclcpp::shutdown();
         return;
       }
@@ -103,7 +103,7 @@ ReplayMotion::ReplayMotion(
       measured_joint_state_ = state;
     });
 
-  int duration_us = static_cast<int>(125000 / rate_);  // default rate is 8Hz (125 ms)
+  auto duration_us = static_cast<int>(125000 / rate_);  // default rate is 8Hz (125 ms)
   timer_ = this->create_wall_timer(
     std::chrono::microseconds(duration_us),
     [this]() {
@@ -126,7 +126,7 @@ void ReplayMotion::timerCallback()
       dist_sum += pow(dist, 2);
       joint_error.push_back(
         measured_joint_state_->position[i] +
-        ((dist > 0) - (dist < 0)) * std::min(0.03 / rate_, abs(dist)));
+        (static_cast<int>(dist > 0) - static_cast<int>(dist < 0)) * std::min(0.03 / rate_, abs(dist)));
     }
     // (dist > 0) - (dist < 0) is sgn function
     to_start.position = joint_error;
@@ -166,7 +166,8 @@ void ReplayMotion::timerCallback()
     while (std::getline(s, value, ',')) {
       try {
         double_value = std::stod(value);
-      } catch (std::exception & e) {
+      } catch (const std::invalid_argument& ia) {
+        RCLCPP_ERROR(this->get_logger(), ia.what());
         RCLCPP_ERROR(
           this->get_logger(),
           "Could not convert to double, stopping node");
@@ -259,7 +260,8 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
     while (std::getline(s, value, ',')) {
       try {
         double_value = std::stod(value);
-      } catch (std::exception & e) {
+      } catch (const std::invalid_argument& ia) {
+        RCLCPP_ERROR(this->get_logger(), ia.what());
         RCLCPP_ERROR(
           this->get_logger(),
           "Could not convert last values to double");
@@ -291,7 +293,7 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
       return false;
     }
   }
-  repeat_count_ = param.as_int();
+  repeat_count_ = static_cast<int>(param.as_int());
   return true;
 }
 
