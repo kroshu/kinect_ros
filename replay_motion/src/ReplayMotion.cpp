@@ -53,10 +53,11 @@ ReplayMotion::ReplayMotion(
     while (std::getline(s, value, ',')) {
       try {
         double_value = std::stod(value);
-      } catch (const std::invalid_argument &ia) {
+      } catch (const std::invalid_argument & ia) {
         RCLCPP_ERROR(this->get_logger(), ia.what());
-        RCLCPP_ERROR(this->get_logger(),
-            "Could not convert to double, stopping node");
+        RCLCPP_ERROR(
+          this->get_logger(),
+          "Could not convert to double, stopping node");
         rclcpp::shutdown();
         return;
       }
@@ -126,7 +127,9 @@ void ReplayMotion::timerCallback()
       dist_sum += pow(dist, 2);
       joint_error.push_back(
         measured_joint_state_->position[i] +
-        (static_cast<int>(dist > 0) - static_cast<int>(dist < 0)) * std::min(0.03 / rate_, abs(dist)));
+        (static_cast<int>(dist > 0) - static_cast<int>(dist < 0)) * std::min(
+          0.03 / rate_, abs(
+            dist)));
     }
     // (dist > 0) - (dist < 0) is sgn function
     to_start.position = joint_error;
@@ -166,7 +169,7 @@ void ReplayMotion::timerCallback()
     while (std::getline(s, value, ',')) {
       try {
         double_value = std::stod(value);
-      } catch (const std::invalid_argument& ia) {
+      } catch (const std::invalid_argument & ia) {
         RCLCPP_ERROR(this->get_logger(), ia.what());
         RCLCPP_ERROR(
           this->get_logger(),
@@ -260,7 +263,7 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
     while (std::getline(s, value, ',')) {
       try {
         double_value = std::stod(value);
-      } catch (const std::invalid_argument& ia) {
+      } catch (const std::invalid_argument & ia) {
         RCLCPP_ERROR(this->get_logger(), ia.what());
         RCLCPP_ERROR(
           this->get_logger(),
