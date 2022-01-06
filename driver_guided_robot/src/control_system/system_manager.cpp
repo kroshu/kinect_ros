@@ -29,7 +29,7 @@ SystemManager::SystemManager(
   qos_.reliable();
   cbg_ = this->create_callback_group(
     rclcpp::CallbackGroupType::MutuallyExclusive);
-  change_robot_commanding_state_client_ = this->create_client<
+  change_robot_manager_state_client_ = this->create_client<
     std_srvs::srv::SetBool>(
     ROBOT_INTERFACE + "/set_commanding_state",
     qos_.get_rmw_qos_profile(), cbg_);
@@ -226,13 +226,13 @@ bool SystemManager::changeState(
     future_result,
     std::chrono::milliseconds(3000));
   if (future_status != std::future_status::ready) {
-    RCLCPP_ERROR(get_logger(), "Future status not ready");
+    RCLCPP_ERROR(get_logger(), "Future status not ready, could not change state of " + node_name);
     return false;
   }
   if (future_result.get()->success) {
     return true;
   } else {
-    RCLCPP_ERROR(get_logger(), "Future result not success");
+    RCLCPP_ERROR(get_logger(), "Future result not success, could not change state of " + node_name);
     return false;
   }
 }
@@ -276,30 +276,33 @@ void SystemManager::getFRIState()
     response_received_callback);
 }
 
+// Activate the ActivatableInterface of robot_manager_node
 bool SystemManager::changeRobotCommandingState(bool is_active)
 {
   auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = is_active;
-  if (!change_robot_commanding_state_client_->wait_for_service(
+  if (!change_robot_manager_state_client_->wait_for_service(
       std::chrono::milliseconds(2000)))
   {
     RCLCPP_ERROR(get_logger(), "Wait for service failed");
     return false;
   }
   auto future_result =
-    change_robot_commanding_state_client_->async_send_request(request);
+    change_robot_manager_state_client_->async_send_request(request);
   auto future_status = kuka_sunrise::wait_for_result(
     future_result,
     std::chrono::milliseconds(3000));
   if (future_status != std::future_status::ready) {
-    RCLCPP_ERROR(get_logger(), "Future status not ready");
+    RCLCPP_ERROR(get_logger(), "Future status not ready, could not change robot commanding state");
     return false;
   }
   if (future_result.get()->success) {
     robot_control_active_ = true;
     return true;
   } else {
-    RCLCPP_ERROR(get_logger(), "Future result not success");
+    RCLCPP_ERROR(
+      get_logger(),
+      "Future result not success, could not change robot commanding state");
     return false;
   }
 }
