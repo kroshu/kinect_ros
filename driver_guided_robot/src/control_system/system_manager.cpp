@@ -78,6 +78,12 @@ on_configure(
       JOINT_CONTROLLER,
       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE))
   {
+    if (!changeState(
+        ROBOT_INTERFACE,
+        lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP))
+    {
+      RCLCPP_ERROR(get_logger(), "Could not solve differing states, restart needed");
+    }
     return ERROR;
   }
   return SUCCESS;
@@ -117,10 +123,25 @@ SystemManager::on_activate(const rclcpp_lifecycle::State & state)
       JOINT_CONTROLLER,
       lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
   {
+    if (!changeState(
+        ROBOT_INTERFACE,
+        lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))
+    {
+      RCLCPP_ERROR(get_logger(), "Could not solve differing states, restart needed");
+    }
     return ERROR;
   }
   if (!robot_control_active_ && !changeRobotCommandingState(true)) {
-    return ERROR;
+    if (!changeState(
+        ROBOT_INTERFACE,
+        lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) ||
+      !changeState(
+        JOINT_CONTROLLER,
+        lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))
+    {
+      RCLCPP_ERROR(get_logger(), "Could not solve differing states, restart needed");
+    }
+    return FAILURE;
   }
   polling_thread_ = std::thread(&SystemManager::monitoringLoop, this);
   robot_control_active_ = true;
