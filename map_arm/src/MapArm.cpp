@@ -38,10 +38,8 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
     "reference_joint_state", qos_);
 
   auto manage_proc_callback = [this](
-    const std::shared_ptr<rmw_request_id_t> request_header,
     std_srvs::srv::SetBool::Request::SharedPtr request,
     std_srvs::srv::SetBool::Response::SharedPtr response) {
-      (void) request_header;
       if (request->data) {
         valid_ = true;
         RCLCPP_INFO(

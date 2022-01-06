@@ -46,11 +46,8 @@ SystemManager::SystemManager(
   manage_processing_client_ = this->create_client<std_srvs::srv::SetBool>(
     "manage_processing");
   auto trigger_change_callback = [this](
-    const std::shared_ptr<rmw_request_id_t> request_header,
-    std_srvs::srv::Trigger::Request::SharedPtr request,
+    std_srvs::srv::Trigger::Request::SharedPtr,
     std_srvs::srv::Trigger::Response::SharedPtr response) {
-      (void) request_header;
-      (void) request;
       response->success = true;
       auto setBool_request =
         std::make_shared<std_srvs::srv::SetBool::Request>();
@@ -65,9 +62,8 @@ SystemManager::SystemManager(
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SystemManager::
 on_configure(
-  const rclcpp_lifecycle::State & state)
+  const rclcpp_lifecycle::State &)
 {
-  (void) state;
   if (!changeState(
       ROBOT_INTERFACE,
       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE))
@@ -90,9 +86,8 @@ on_configure(
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SystemManager::on_cleanup(
-  const rclcpp_lifecycle::State & state)
+  const rclcpp_lifecycle::State &)
 {
-  (void) state;
   if (!changeState(
       ROBOT_INTERFACE,
       lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP))
@@ -110,9 +105,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn System
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-SystemManager::on_activate(const rclcpp_lifecycle::State & state)
+SystemManager::on_activate(const rclcpp_lifecycle::State &)
 {
-  (void) state;
   if (!changeState(
       ROBOT_INTERFACE,
       lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
@@ -154,9 +148,8 @@ SystemManager::on_activate(const rclcpp_lifecycle::State & state)
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SystemManager::
 on_deactivate(
-  const rclcpp_lifecycle::State & state)
+  const rclcpp_lifecycle::State &)
 {
-  (void) state;
   if (robot_control_active_ && !changeRobotCommandingState(false)) {
     return ERROR;
   }
@@ -214,9 +207,8 @@ SystemManager::on_shutdown(const rclcpp_lifecycle::State & state)
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SystemManager::on_error(
-  const rclcpp_lifecycle::State & state)
+  const rclcpp_lifecycle::State &)
 {
-  (void) state;
   RCLCPP_INFO(get_logger(), "An error occured");
   return SUCCESS;
 }
