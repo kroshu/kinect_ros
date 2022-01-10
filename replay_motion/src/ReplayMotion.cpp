@@ -84,6 +84,9 @@ ReplayMotion::ReplayMotion(
     return;
   }
 
+  set_rate_client_ = this->create_client<kuka_sunrise_interfaces::srv::SetDouble>(
+    "joint_controller/set_rate");
+
   param_callback_ = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
       return this->onParamChange(parameters);
@@ -232,7 +235,25 @@ bool ReplayMotion::onRateChangeRequest(const rclcpp::Parameter & param)
     RCLCPP_ERROR(this->get_logger(), "0.2 < rate < 5 must be true");
     return false;
   }
-
+  auto set_double_request = std::make_shared<kuka_sunrise_interfaces::srv::SetDouble::Request>();
+  auto future_result = set_rate_client_->async_send_request(set_double_request);
+  auto future_status = kuka_sunrise::wait_for_result(
+    future_result,
+    std::chrono::milliseconds(3000));
+  if (future_status != std::future_status::ready) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "Future status not ready, could not set rate of joint controller");
+    return false;
+  }
+  if (future_result.get()->success) {
+    return true;
+  } else {
+    RCLCPP_ERROR(
+      get_logger(),
+      "Future result not success, could not set rate of joint controller");
+    return false;
+  }
   rate_ = param.as_double();
   return true;
 }

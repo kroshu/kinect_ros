@@ -23,6 +23,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rcpputils/filesystem_helper.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "kuka_sunrise_interfaces/srv/set_double.hpp"
+#include "kuka_sunrise/internal/service_tools.hpp"
 
 
 namespace replay_motion
@@ -42,6 +44,7 @@ private:
   sensor_msgs::msg::JointState::SharedPtr measured_joint_state_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr measured_joint_state_listener_;
+  rclcpp::Client<kuka_sunrise_interfaces::srv::SetDouble>::SharedPtr set_rate_client_;
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
 
