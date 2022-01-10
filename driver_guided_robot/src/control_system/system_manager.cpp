@@ -43,16 +43,15 @@ SystemManager::SystemManager(
   get_state_client_ =
     this->create_client<kuka_sunrise_interfaces::srv::GetState>(
     "robot_control/get_fri_state");
-  manage_processing_client_ = this->create_client<std_srvs::srv::SetBool>(
-    "manage_processing");
+  manage_processing_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
+    "system_manager/manage", 1);
   auto trigger_change_callback = [this](
     std_srvs::srv::Trigger::Request::SharedPtr,
     std_srvs::srv::Trigger::Response::SharedPtr response) {
       response->success = true;
-      auto setBool_request =
-        std::make_shared<std_srvs::srv::SetBool::Request>();
-      setBool_request->data = false;
-      manage_processing_client_->async_send_request(setBool_request);
+      std_msgs::msg::Bool activate;
+      activate.data = false;
+      manage_processing_publisher_->publish(activate);
       RCLCPP_WARN(get_logger(), "Motion stopped externally, deactivating controls and managers");
       this->deactivate();
     };
@@ -139,10 +138,9 @@ SystemManager::on_activate(const rclcpp_lifecycle::State &)
   }
   polling_thread_ = std::thread(&SystemManager::monitoringLoop, this);
   robot_control_active_ = true;
-  auto setBool_request =
-    std::make_shared<std_srvs::srv::SetBool::Request>();
-  setBool_request->data = true;
-  manage_processing_client_->async_send_request(setBool_request);
+  std_msgs::msg::Bool activate;
+  activate.data = true;
+  manage_processing_publisher_->publish(activate);
   return SUCCESS;
 }
 
@@ -275,10 +273,9 @@ void SystemManager::getFRIState()
       if (lbr_state_ != 4 && !stop_) {
         stop_ = true;
       } else if (lbr_state_ != 4 && stop_) {
-        auto setBool_request =
-          std::make_shared<std_srvs::srv::SetBool::Request>();
-        setBool_request->data = false;
-        manage_processing_client_->async_send_request(setBool_request);
+        std_msgs::msg::Bool activate;
+        activate.data = false;
+        manage_processing_publisher_->publish(activate);
       } else {
         stop_ = false;
       }
