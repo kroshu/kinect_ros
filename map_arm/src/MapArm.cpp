@@ -38,9 +38,8 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
     "reference_joint_state", qos_);
 
   auto manage_proc_callback = [this](
-    std_srvs::srv::SetBool::Request::SharedPtr request,
-    std_srvs::srv::SetBool::Response::SharedPtr response) {
-      if (request->data) {
+    std_msgs::msg::Bool::SharedPtr valid) {
+      if (valid) {
         valid_ = true;
         RCLCPP_INFO(
           this->get_logger(),
@@ -51,10 +50,9 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
           this->get_logger(),
           "LBR state is not 4, reactivate or restart system manager!");
       }
-      response->success = true;
     };
-  manage_processing_service_ = this->create_service<std_srvs::srv::SetBool>(
-    "manage_processing", manage_proc_callback);
+  manage_processing_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "system_manager/manage", 1, manage_proc_callback);
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change");
 
