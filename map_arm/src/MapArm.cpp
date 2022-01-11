@@ -37,45 +37,36 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
     "reference_joint_state", qos_);
 
-  manage_processing_service_ = this->create_service<std_srvs::srv::SetBool>(
-    "manage_processing",
-    [this](const std::shared_ptr<rmw_request_id_t> request_header,
-    std_srvs::srv::SetBool::Request::SharedPtr request,
-    std_srvs::srv::SetBool::Response::SharedPtr response) {
-      this->manageProcessingCallback(request_header, request, response);
-    });
+  auto manage_proc_callback = [this](
+    std_msgs::msg::Bool::SharedPtr valid) {
+      if (valid) {
+        valid_ = true;
+        RCLCPP_INFO(
+          this->get_logger(),
+          "System manager is active again, continuing motion");
+      } else {
+        valid_ = false;
+        RCLCPP_WARN(
+          this->get_logger(),
+          "LBR state is not 4, reactivate or restart system manager!");
+      }
+    };
+  manage_processing_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "system_manager/manage", 1, manage_proc_callback);
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change");
 
   prev_rel_pos_.x = prev_rel_pos_.y =
     prev_rel_pos_.z = 0;
 
-  this->declare_parameter(
-    "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
-      4, 4, 0});
-
   param_callback_ = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
       return this->onParamChange(parameters);
     });
 
-  const rosbag2_cpp::ConverterOptions converter_options(
-    {rmw_get_serialization_format(),
-      rmw_get_serialization_format()});
-  const rosbag2_cpp::StorageOptions storage_options({"replay", "sqlite3"});
-  rosbag_writer_ = std::make_unique<rosbag2_cpp::writers::SequentialWriter>();
-  try {
-    rosbag_writer_->open(storage_options, converter_options);
-    rosbag_writer_->create_topic(
-      {"reference_joint_state", "std_msgs/Float64MultiArray",
-        rmw_get_serialization_format(), ""});
-  } catch (const std::runtime_error & e) {
-    RCLCPP_ERROR(
-      this->get_logger(), "Could not open DB for writing");
-    RCLCPP_ERROR(
-      this->get_logger(), e.what());
-    rclcpp::shutdown();
-  }
+  this->declare_parameter(
+    "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
+      4, 4, 0});
 }
 
 rcl_interfaces::msg::SetParametersResult MapArm::onParamChange(
@@ -242,7 +233,21 @@ void MapArm::markersReceivedCallback(
       // Stop if left hand is raised upwards
       if (left_hand.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
-        change_state_client_->async_send_request(trigger_request_);
+        auto future_result = change_state_client_->async_send_request(
+            trigger_request_);
+        auto future_status = kuka_sunrise::wait_for_result(future_result,
+            std::chrono::milliseconds(3000));
+        if (future_status != std::future_status::ready) {
+          RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
+          rclcpp::shutdown();
+          return;
+        }
+        if (!future_result.get()->success) {
+          RCLCPP_ERROR(get_logger(),
+              "Future result not success, stopping node");
+          rclcpp::shutdown();
+          return;
+        }
       }
     } else {
       RCLCPP_WARN(
@@ -301,7 +306,20 @@ void MapArm::markersReceivedCallback(
     RCLCPP_WARN(
       get_logger(),
       "Missing joint from hand, stopping motion");
-    change_state_client_->async_send_request(trigger_request_);
+    auto future_result = change_state_client_->async_send_request(
+        trigger_request_);
+    auto future_status = kuka_sunrise::wait_for_result(future_result,
+        std::chrono::milliseconds(3000));
+    if (future_status != std::future_status::ready) {
+      RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
+      rclcpp::shutdown();
+      return;
+    }
+    if (!future_result.get()->success) {
+      RCLCPP_ERROR(get_logger(), "Future result not success, stopping node");
+      rclcpp::shutdown();
+      return;
+    }
   }
 }
 

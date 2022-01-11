@@ -33,9 +33,10 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "std_srvs/srv/trigger.hpp"
-#include "std_srvs/srv/set_bool.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
 #include "utils/GeometryUtils.hpp"
+#include "kuka_sunrise/internal/service_tools.hpp"
 
 
 namespace filter_points
@@ -77,7 +78,7 @@ private:
     const geometry_msgs::msg::Point & handtip_rel_pos);
 
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr manage_processing_service_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr manage_processing_sub_;
   rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr marker_listener_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
 
