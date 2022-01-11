@@ -29,7 +29,7 @@ find_package(kuka_sunrise REQUIRED)
 include_directories(include)
 
 add_executable(map_arm src/MapArm.cpp)
-ament_target_dependencies(map_arm rclcpp visualization_msgs std_srvs sensor_msgs)
+ament_target_dependencies(map_arm rclcpp visualization_msgs std_srvs sensor_msgs rosbag2_cpp)
 target_link_libraries(map_arm filter_points::utils Eigen3::Eigen kuka_sunrise::internal)
 
 install(TARGETS map_arm

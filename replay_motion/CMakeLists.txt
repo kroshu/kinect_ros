@@ -30,6 +30,7 @@ include_directories(include ${kuka_sunrise_INCLUDES}/include)
 
 add_executable(replay_motion src/ReplayMotion.cpp)
 ament_target_dependencies(replay_motion rclcpp sensor_msgs kuka_sunrise kuka_sunrise_interfaces)
+target_link_libraries(kuka_sunrise::internal)
 
 install(TARGETS replay_motion
     DESTINATION lib/${PROJECT_NAME})
