@@ -223,10 +223,25 @@ void MapArm::markersReceivedCallback(
 
     // Stop if left hand is raised
     if (stop_it != msg->markers.end()) {
-      auto left_stop = poseDiff(stop_it->pose.position, shoulder_it->pose.position);
+      auto left_stop = poseDiff(stop_it->pose.position,
+          shoulder_it->pose.position);
       if (left_stop.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
-        change_state_client_->async_send_request(trigger_request_);
+        auto future_result = change_state_client_->async_send_request(
+            trigger_request_);
+        auto future_status = kuka_sunrise::wait_for_result(future_result,
+            std::chrono::milliseconds(3000));
+        if (future_status != std::future_status::ready) {
+          RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
+          rclcpp::shutdown();
+          return;
+        }
+        if (!future_result.get()->success) {
+          RCLCPP_ERROR(get_logger(),
+              "Future result not success, stopping node");
+          rclcpp::shutdown();
+          return;
+        }
       }
     } else {
       RCLCPP_WARN(
@@ -256,7 +271,20 @@ void MapArm::markersReceivedCallback(
     RCLCPP_WARN(
       get_logger(),
       "Missing joint from hand, stopping motion");
-    change_state_client_->async_send_request(trigger_request_);
+    auto future_result = change_state_client_->async_send_request(
+        trigger_request_);
+    auto future_status = kuka_sunrise::wait_for_result(future_result,
+        std::chrono::milliseconds(3000));
+    if (future_status != std::future_status::ready) {
+      RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
+      rclcpp::shutdown();
+      return;
+    }
+    if (!future_result.get()->success) {
+      RCLCPP_ERROR(get_logger(), "Future result not success, stopping node");
+      rclcpp::shutdown();
+      return;
+    }
   }
 }
 

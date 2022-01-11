@@ -31,6 +31,7 @@
 #include "std_srvs/srv/trigger.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "utils/GeometryUtils.hpp"
+#include "kuka_sunrise/internal/service_tools.hpp"
 
 
 namespace filter_points

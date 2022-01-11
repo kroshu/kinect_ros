@@ -53,7 +53,7 @@ SystemManager::SystemManager(
       activate.data = false;
       manage_processing_publisher_->publish(activate);
       RCLCPP_WARN(get_logger(), "Motion stopped externally, deactivating controls and managers");
-      this->deactivate();
+      if (this->deactivate().label() != "inactive") {response->success = false;}
     };
   trigger_change_service_ = this->create_service<std_srvs::srv::Trigger>(
     "system_manager/trigger_change", trigger_change_callback);
