@@ -22,11 +22,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(kuka_sunrise REQUIRED)
 find_package(kuka_sunrise_interfaces REQUIRED)
 
-get_filename_component(PARENT_DIR ${kuka_sunrise_DIR} DIRECTORY)
-get_filename_component(PARENT_DIR ${PARENT_DIR} DIRECTORY)
-get_filename_component(kuka_sunrise_INCLUDES ${PARENT_DIR} DIRECTORY)
-
-include_directories(include ${kuka_sunrise_INCLUDES}/include)
+include_directories(include)
 
 add_executable(replay_motion src/ReplayMotion.cpp)
 ament_target_dependencies(replay_motion rclcpp sensor_msgs kuka_sunrise kuka_sunrise_interfaces)
