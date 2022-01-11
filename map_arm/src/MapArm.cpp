@@ -230,7 +230,7 @@ void MapArm::markersReceivedCallback(
         auto future_result = change_state_client_->async_send_request(
             trigger_request_);
         auto future_status = kuka_sunrise::wait_for_result(future_result,
-            std::chrono::milliseconds(3000));
+            std::chrono::milliseconds(500));
         if (future_status != std::future_status::ready) {
           RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
           rclcpp::shutdown();
@@ -274,7 +274,7 @@ void MapArm::markersReceivedCallback(
     auto future_result = change_state_client_->async_send_request(
         trigger_request_);
     auto future_status = kuka_sunrise::wait_for_result(future_result,
-        std::chrono::milliseconds(3000));
+        std::chrono::milliseconds(500));
     if (future_status != std::future_status::ready) {
       RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
       rclcpp::shutdown();

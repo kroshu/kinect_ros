@@ -45,6 +45,7 @@ SystemManager::SystemManager(
     "robot_control/get_fri_state");
   manage_processing_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
     "system_manager/manage", 1);
+  manage_processing_publisher_->on_activate();
   auto trigger_change_callback = [this](
     std_srvs::srv::Trigger::Request::SharedPtr,
     std_srvs::srv::Trigger::Response::SharedPtr response) {
@@ -52,8 +53,8 @@ SystemManager::SystemManager(
       std_msgs::msg::Bool activate;
       activate.data = false;
       manage_processing_publisher_->publish(activate);
-      RCLCPP_WARN(get_logger(), "Motion stopped externally, deactivating controls and managers");
       if (this->deactivate().label() != "inactive") {response->success = false;}
+      RCLCPP_WARN(get_logger(), "Motion stopped externally, deactivating controls and managers");
     };
   trigger_change_service_ = this->create_service<std_srvs::srv::Trigger>(
     "system_manager/trigger_change", trigger_change_callback);
