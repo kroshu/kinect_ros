@@ -25,12 +25,7 @@ find_package(std_srvs REQUIRED)
 find_package(kuka_sunrise_interfaces REQUIRED)
 find_package(kuka_sunrise REQUIRED)
 
-
-get_filename_component(PARENT_DIR ${kuka_sunrise_DIR} DIRECTORY)
-get_filename_component(PARENT_DIR ${PARENT_DIR} DIRECTORY)
-get_filename_component(kuka_sunrise_INCLUDES ${PARENT_DIR} DIRECTORY)
-
-include_directories(include ${kuka_sunrise_INCLUDES}/include)
+include_directories(include)
 
 add_executable(system_manager
     src/control_system/system_manager.cpp)
