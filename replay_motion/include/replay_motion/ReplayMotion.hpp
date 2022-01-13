@@ -39,6 +39,7 @@ private:
   int repeat_count_ = 0;  // negative numbers mean repeat infinitely
   double rate_ = 1;
   std::ifstream csv_in_;
+  rclcpp::callback_group::CallbackGroup::SharedPtr cbg_;
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState::SharedPtr reference_;
   sensor_msgs::msg::JointState::SharedPtr measured_joint_state_;

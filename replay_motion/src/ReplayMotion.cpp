@@ -83,16 +83,18 @@ ReplayMotion::ReplayMotion(
     rclcpp::shutdown();
     return;
   }
-
+  cbg_ = this->create_callback_group(
+    rclcpp::callback_group::CallbackGroupType::MutuallyExclusive);
   set_rate_client_ = this->create_client<kuka_sunrise_interfaces::srv::SetDouble>(
-    "joint_controller/set_rate");
+    "joint_controller/set_rate", ::rmw_qos_profile_default, cbg_);
+
+  this->declare_parameter("rate", rclcpp::ParameterValue(rate_));
 
   param_callback_ = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
       return this->onParamChange(parameters);
     });
 
-  this->declare_parameter("rate", rclcpp::ParameterValue(rate_));
   this->declare_parameter(
     "repeat_count",
     rclcpp::ParameterValue(repeat_count_));
@@ -138,6 +140,13 @@ void ReplayMotion::timerCallback()
     // (dist > 0) - (dist < 0) is sgn function
     to_start.position = joint_error;
     if (dist_sum < 0.001) {
+      if (!onRateChangeRequest(this->get_parameter("rate"))) {
+        RCLCPP_ERROR(
+          this->get_logger(),
+          "Could not sync with joint controller, stopping node");
+        rclcpp::shutdown();
+        return;
+      }
       reached_start_ = true;
       RCLCPP_INFO(
         this->get_logger(),
@@ -227,6 +236,13 @@ bool ReplayMotion::onRateChangeRequest(const rclcpp::Parameter & param)
       param.get_name().c_str());
     return false;
   }
+  if (reached_start_) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "The rate can't be changed if motion has already started",
+      param.get_name().c_str());
+    return false;
+  }
   if (param.as_double() < 0.2 || param.as_double() > 5) {
     RCLCPP_ERROR(
       this->get_logger(),
@@ -246,9 +262,7 @@ bool ReplayMotion::onRateChangeRequest(const rclcpp::Parameter & param)
       "Future status not ready, could not set rate of joint controller");
     return false;
   }
-  if (future_result.get()->success) {
-    return true;
-  } else {
+  if (!future_result.get()->success) {
     RCLCPP_ERROR(
       get_logger(),
       "Future result not success, could not set rate of joint controller");
@@ -339,7 +353,7 @@ int main(int argc, char * argv[])
   setvbuf(stdout, nullptr, _IONBF, BUFSIZ);
   rclcpp::init(argc, argv);
 
-  rclcpp::executors::SingleThreadedExecutor executor;
+  rclcpp::executors::MultiThreadedExecutor executor;
   auto node = std::make_shared<replay_motion::ReplayMotion>(
     "replay_motion",
     rclcpp::NodeOptions());
