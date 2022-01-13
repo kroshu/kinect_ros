@@ -30,7 +30,7 @@ include_directories(include)
 add_executable(system_manager
     src/control_system/system_manager.cpp)
 ament_target_dependencies(system_manager rclcpp rclcpp_lifecycle std_msgs std_srvs kuka_sunrise_interfaces)
-target_link_libraries(kuka_sunrise::internal)
+target_link_libraries(system_manager kuka_sunrise::internal)
 
 install(TARGETS system_manager
     DESTINATION lib/${PROJECT_NAME})
