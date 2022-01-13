@@ -26,20 +26,18 @@ namespace filter_points
 MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & options)
 : rclcpp::Node(node_name, options)
 {
-  auto callback = [this](
-    visualization_msgs::msg::MarkerArray::SharedPtr msg) {
-      this->markersReceivedCallback(msg);
-    };
   marker_listener_ = this->create_subscription<
     visualization_msgs::msg::MarkerArray>(
     "body_tracking_data", qos_,
-    callback);
+    [this](visualization_msgs::msg::MarkerArray::SharedPtr msg) {
+      this->markersReceivedCallback(msg);
+    });
   reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
     "reference_joint_state", qos_);
 
   auto manage_proc_callback = [this](
     std_msgs::msg::Bool::SharedPtr valid) {
-      if (valid) {
+      if (valid->data) {
         valid_ = true;
         RCLCPP_INFO(
           this->get_logger(),
@@ -51,10 +49,12 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
           "LBR state is not 4, reactivate or restart system manager!");
       }
     };
+  cbg_ = this->create_callback_group(
+    rclcpp::CallbackGroupType::MutuallyExclusive);
   manage_processing_sub_ = this->create_subscription<std_msgs::msg::Bool>(
     "system_manager/manage", 1, manage_proc_callback);
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
-    "system_manager/trigger_change");
+    "system_manager/trigger_change", ::rmw_qos_profile_default, cbg_);
 
   prev_rel_pos_.x = prev_rel_pos_.y =
     prev_rel_pos_.z = 0;
@@ -223,22 +223,25 @@ void MapArm::markersReceivedCallback(
 
     // Stop if left hand is raised
     if (stop_it != msg->markers.end()) {
-      auto left_stop = poseDiff(stop_it->pose.position,
-          shoulder_it->pose.position);
+      auto left_stop = poseDiff(
+        stop_it->pose.position,
+        shoulder_it->pose.position);
       if (left_stop.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
         auto future_result = change_state_client_->async_send_request(
-            trigger_request_);
-        auto future_status = kuka_sunrise::wait_for_result(future_result,
-            std::chrono::milliseconds(500));
+          trigger_request_);
+        auto future_status = kuka_sunrise::wait_for_result(
+          future_result,
+          std::chrono::milliseconds(500));
         if (future_status != std::future_status::ready) {
           RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
           rclcpp::shutdown();
           return;
         }
         if (!future_result.get()->success) {
-          RCLCPP_ERROR(get_logger(),
-              "Future result not success, stopping node");
+          RCLCPP_ERROR(
+            get_logger(),
+            "Future result not success, stopping node");
           rclcpp::shutdown();
           return;
         }
@@ -272,9 +275,10 @@ void MapArm::markersReceivedCallback(
       get_logger(),
       "Missing joint from hand, stopping motion");
     auto future_result = change_state_client_->async_send_request(
-        trigger_request_);
-    auto future_status = kuka_sunrise::wait_for_result(future_result,
-        std::chrono::milliseconds(500));
+      trigger_request_);
+    auto future_status = kuka_sunrise::wait_for_result(
+      future_result,
+      std::chrono::milliseconds(500));
     if (future_status != std::future_status::ready) {
       RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
       rclcpp::shutdown();

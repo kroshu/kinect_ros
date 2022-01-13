@@ -50,11 +50,22 @@ SystemManager::SystemManager(
     std_srvs::srv::Trigger::Request::SharedPtr,
     std_srvs::srv::Trigger::Response::SharedPtr response) {
       response->success = true;
-      std_msgs::msg::Bool activate;
-      activate.data = false;
-      manage_processing_publisher_->publish(activate);
-      if (this->deactivate().label() != "inactive") {response->success = false;}
-      RCLCPP_WARN(get_logger(), "Motion stopped externally, deactivating controls and managers");
+
+      if (this->get_current_state().label() == "active") {
+        std_msgs::msg::Bool activate;
+        activate.data = false;
+        manage_processing_publisher_->publish(activate);
+        if (this->deactivate().label() != "inactive") {
+          response->success = false;
+        }
+        RCLCPP_WARN(
+          get_logger(),
+          "Motion stopped externally, deactivating controls and managers");
+      } else {
+        RCLCPP_WARN(
+          get_logger(),
+          "Invalid request, system manager not active");
+      }
     };
   trigger_change_service_ = this->create_service<std_srvs::srv::Trigger>(
     "system_manager/trigger_change", trigger_change_callback);
