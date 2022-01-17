@@ -64,6 +64,24 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
       return this->onParamChange(parameters);
     });
 
+  const rosbag2_cpp::ConverterOptions converter_options(
+    {rmw_get_serialization_format(),
+      rmw_get_serialization_format()});
+  const rosbag2_cpp::StorageOptions storage_options({"replay", "sqlite3"});
+  rosbag_writer_ = std::make_unique<rosbag2_cpp::writers::SequentialWriter>();
+  try {
+    rosbag_writer_->open(storage_options, converter_options);
+    rosbag_writer_->create_topic(
+      {"reference_joint_state", "std_msgs/Float64MultiArray",
+        rmw_get_serialization_format(), ""});
+  } catch (const std::runtime_error & e) {
+    RCLCPP_ERROR(
+      this->get_logger(), "Could not open DB for writing");
+    RCLCPP_ERROR(
+      this->get_logger(), e.what());
+    rclcpp::shutdown();
+  }
+
   this->declare_parameter(
     "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
       4, 4, 0});
@@ -327,11 +345,9 @@ void MapArm::markersReceivedCallback(
 }
 
 void MapArm::manageProcessingCallback(
-  const std::shared_ptr<rmw_request_id_t> request_header,
   std_srvs::srv::SetBool::Request::SharedPtr request,
   std_srvs::srv::SetBool::Response::SharedPtr response)
 {
-  (void) request_header;
   if (request->data) {
     valid_ = true;
     RCLCPP_INFO(

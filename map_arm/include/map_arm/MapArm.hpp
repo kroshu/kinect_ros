@@ -63,7 +63,6 @@ private:
     const std::vector<rclcpp::Parameter> & parameters);
   bool onMovingAvgChangeRequest(const rclcpp::Parameter & param);
   void manageProcessingCallback(
-    const std::shared_ptr<rmw_request_id_t> request_header,
     std_srvs::srv::SetBool::Request::SharedPtr request,
     std_srvs::srv::SetBool::Response::SharedPtr response);
   void markersReceivedCallback(
