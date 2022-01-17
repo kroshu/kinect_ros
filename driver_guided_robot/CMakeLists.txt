@@ -25,17 +25,12 @@ find_package(std_srvs REQUIRED)
 find_package(kuka_sunrise_interfaces REQUIRED)
 find_package(kuka_sunrise REQUIRED)
 
-
-get_filename_component(PARENT_DIR ${kuka_sunrise_DIR} DIRECTORY)
-get_filename_component(PARENT_DIR ${PARENT_DIR} DIRECTORY)
-get_filename_component(kuka_sunrise_INCLUDES ${PARENT_DIR} DIRECTORY)
-
-include_directories(include ${kuka_sunrise_INCLUDES}/include)
+include_directories(include)
 
 add_executable(system_manager
     src/control_system/system_manager.cpp)
 ament_target_dependencies(system_manager rclcpp rclcpp_lifecycle std_msgs std_srvs kuka_sunrise_interfaces)
-target_link_libraries(kuka_sunrise::internal)
+target_link_libraries(system_manager kuka_sunrise::internal)
 
 install(TARGETS system_manager
     DESTINATION lib/${PROJECT_NAME})
