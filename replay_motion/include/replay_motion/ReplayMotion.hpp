@@ -23,6 +23,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rcpputils/filesystem_helper.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "kuka_sunrise_interfaces/srv/set_double.hpp"
 #include "kuka_sunrise/internal/service_tools.hpp"
 
@@ -36,6 +37,7 @@ public:
 
 private:
   bool reached_start_ = false;
+  bool valid_ = true;
   int repeat_count_ = 0;  // negative numbers mean repeat infinitely
   double rate_ = 1;
   std::ifstream csv_in_;
@@ -44,6 +46,7 @@ private:
   sensor_msgs::msg::JointState::SharedPtr reference_;
   sensor_msgs::msg::JointState::SharedPtr measured_joint_state_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr manage_processing_sub_;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr measured_joint_state_listener_;
   rclcpp::Client<kuka_sunrise_interfaces::srv::SetDouble>::SharedPtr set_rate_client_;
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));

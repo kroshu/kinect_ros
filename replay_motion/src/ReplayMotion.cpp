@@ -19,9 +19,7 @@
 #include <vector>
 #include <algorithm>
 
-// TODO(Svastits): more csv files with wait between
-// TODO(Svastits): poll fri state?
-// TODO(Svastits): create service to change robot_controller cmd_per_frame
+// TODO(Svastits): more csv files with wait between and differing rates
 
 std::string getLastLine(std::ifstream & in)
 {
@@ -38,6 +36,13 @@ ReplayMotion::ReplayMotion(
   const rclcpp::NodeOptions & options)
 : rclcpp::Node(node_name, options)
 {
+  auto manage_proc_callback = [this](
+    std_msgs::msg::Bool::SharedPtr valid) {
+      valid_ = valid->data;
+    };
+  manage_processing_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "system_manager/manage", 1, manage_proc_callback);
+
   if (!rcpputils::fs::exists(rcpputils::fs::path("replay.csv"))) {
     RCLCPP_ERROR(this->get_logger(), "File does not exist, stopping node");
     rclcpp::shutdown();
@@ -122,6 +127,12 @@ ReplayMotion::ReplayMotion(
 
 void ReplayMotion::timerCallback()
 {
+  if (!valid_) {
+    RCLCPP_ERROR(
+      this->get_logger(), "LBR state is not 4, stopping playback");
+    rclcpp::shutdown();
+    return;
+  }
   if (repeat_count_ < 0) {repeat_count_ = -1;}
   if (!reached_start_) {
     double dist_sum = 0;
