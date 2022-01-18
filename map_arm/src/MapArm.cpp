@@ -24,7 +24,7 @@ namespace filter_points
 {
 
 MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & options)
-: rclcpp::Node(node_name, options)
+: rclcpp::Node(node_name, options), storage_options_({"replay", "sqlite3"})
 {
   marker_listener_ = this->create_subscription<
     visualization_msgs::msg::MarkerArray>(
@@ -67,13 +67,13 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   const rosbag2_cpp::ConverterOptions converter_options(
     {rmw_get_serialization_format(),
       rmw_get_serialization_format()});
-  const rosbag2_cpp::StorageOptions storage_options({"replay", "sqlite3"});
   rosbag_writer_ = std::make_unique<rosbag2_cpp::writers::SequentialWriter>();
   try {
-    rosbag_writer_->open(storage_options, converter_options);
+    rosbag_writer_->open(storage_options_, converter_options);
     rosbag_writer_->create_topic(
       {"reference_joint_state", "std_msgs/Float64MultiArray",
         rmw_get_serialization_format(), ""});
+    bag_count_++;
   } catch (const std::runtime_error & e) {
     RCLCPP_ERROR(
       this->get_logger(), "Could not open DB for writing");
@@ -103,6 +103,20 @@ rcl_interfaces::msg::SetParametersResult MapArm::onParamChange(
     }
   }
   return result;
+}
+
+MapArm::~MapArm()
+{
+  rosbag_writer_->reset();
+  char file_name[] = storage_options_.uri.c_str();
+  if (!rename(
+      file_name + "/" + file_name + "_0.db3",
+      file_name + "/motion" + std::to_string(bag_count_).c_str()))
+  {
+    RCLCPP_ERROR(
+      get_logger(),
+      "Could not rename bagfile");
+  }
 }
 
 bool MapArm::onMovingAvgChangeRequest(const rclcpp::Parameter & param)
@@ -276,32 +290,7 @@ void MapArm::markersReceivedCallback(
     }
 
     if (record_) {
-      auto message = std::make_shared<rosbag2_storage::SerializedBagMessage>();
-      auto serializer = rclcpp::Serialization<std_msgs::msg::Float64MultiArray>();
-      auto serialized_message = rclcpp::SerializedMessage();
-      // TODO(Svastits): is this converision necessary? create own type?
-      std_msgs::msg::Float64MultiArray ref;
-      ref.data = reference.position;
-      serializer.serialize_message(&ref, &serialized_message);
-
-      message->serialized_data =
-        std::shared_ptr<rcutils_uint8_array_t>(
-        new rcutils_uint8_array_t,
-        [this](rcutils_uint8_array_t * msg_data) {
-          auto fini_return = rcutils_uint8_array_fini(msg_data);
-          delete msg_data;
-          if (fini_return != RCUTILS_RET_OK) {
-            RCLCPP_ERROR_STREAM(
-              this->get_logger(),
-              "Failed to destroy serialized message " << rcutils_get_error_string().str);
-          }
-        });
-      *message->serialized_data =
-        serialized_message.release_rcl_serialized_message();
-
-      message->topic_name = "reference_joint_state";
-      message->time_stamp = this->now().nanoseconds();
-      rosbag_writer_->write(message);
+      writeBagFile(reference);
     }
 
     // If cartesian distance is small, do not send new commands
@@ -344,6 +333,36 @@ void MapArm::markersReceivedCallback(
   }
 }
 
+void MapArm::writeBagFile(const sensor_msgs::msg::JointState & reference)
+{
+  auto message = std::make_shared<rosbag2_storage::SerializedBagMessage>();
+  auto serializer = rclcpp::Serialization<std_msgs::msg::Float64MultiArray>();
+  auto serialized_message = rclcpp::SerializedMessage();
+  // TODO(Svastits): is this converision necessary? create own type?
+  std_msgs::msg::Float64MultiArray ref;
+  ref.data = reference.position;
+  serializer.serialize_message(&ref, &serialized_message);
+
+  message->serialized_data =
+    std::shared_ptr<rcutils_uint8_array_t>(
+    new rcutils_uint8_array_t,
+    [this](rcutils_uint8_array_t * msg_data) {
+      auto fini_return = rcutils_uint8_array_fini(msg_data);
+      delete msg_data;
+      if (fini_return != RCUTILS_RET_OK) {
+        RCLCPP_ERROR_STREAM(
+          this->get_logger(),
+          "Failed to destroy serialized message " << rcutils_get_error_string().str);
+      }
+    });
+  *message->serialized_data =
+    serialized_message.release_rcl_serialized_message();
+
+  message->topic_name = "reference_joint_state";
+  message->time_stamp = this->now().nanoseconds();
+  rosbag_writer_->write(message);
+}
+
 void MapArm::manageProcessingCallback(
   std_srvs::srv::SetBool::Request::SharedPtr request,
   std_srvs::srv::SetBool::Response::SharedPtr response)
@@ -353,14 +372,40 @@ void MapArm::manageProcessingCallback(
     RCLCPP_INFO(
       this->get_logger(),
       "System manager is active again, continuing motion");
+    if (record_) {
+      const rosbag2_cpp::ConverterOptions converter_options(
+        {rmw_get_serialization_format(),
+          rmw_get_serialization_format()});
+      try {
+        rosbag_writer_->open(storage_options_, converter_options);
+        rosbag_writer_->create_topic(
+          {"reference_joint_state", "std_msgs/Float64MultiArray",
+            rmw_get_serialization_format(), ""});
+        bag_count_++;
+      } catch (const std::runtime_error & e) {
+        RCLCPP_ERROR(
+          this->get_logger(), "Could not open DB for writing");
+        RCLCPP_ERROR(
+          this->get_logger(), e.what());
+        rclcpp::shutdown();
+      }
+    }
   } else {
     valid_ = false;
     RCLCPP_WARN(
       this->get_logger(),
       "LBR state is not 4, reactivate or restart system manager!");
     if (record_) {
-      record_ = false;
-      // TODO(Svsatits): start new bag with rosbag_writer_->split_bagfile;
+      rosbag_writer_->reset();
+      char file_name[] = storage_options_.uri.c_str();
+      if (!rename(
+          file_name + "/" + file_name + "_0.db3",
+          file_name + "/motion" + std::to_string(bag_count_).c_str()))
+      {
+        RCLCPP_ERROR(
+          get_logger(),
+          "Could not rename bagfile");
+      }
     }
   }
   response->success = true;

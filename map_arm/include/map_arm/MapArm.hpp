@@ -23,6 +23,7 @@
 #include <map>
 #include <memory>
 #include <cmath>
+#include <cstdio>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/serialization.hpp"
@@ -48,11 +49,13 @@ class MapArm : public rclcpp::Node
 {
 public:
   MapArm(const std::string & node_name, const rclcpp::NodeOptions & options);
+  ~MapArm();
 
 private:
   bool valid_ = true;
   bool motion_started_ = false;
   bool record_ = false;
+  int bag_count_ = 0;
   std::vector<double> prev_joint_state_ = std::vector<double>(7);
   // int is not supported for vectors, only uint8_t or long
   std::vector<int64_t> moving_avg_depth_ = std::vector<int64_t>(7);
@@ -62,6 +65,7 @@ private:
   rcl_interfaces::msg::SetParametersResult onParamChange(
     const std::vector<rclcpp::Parameter> & parameters);
   bool onMovingAvgChangeRequest(const rclcpp::Parameter & param);
+  void writeBagFile(const sensor_msgs::msg::JointState & reference);
   void manageProcessingCallback(
     std_srvs::srv::SetBool::Request::SharedPtr request,
     std_srvs::srv::SetBool::Response::SharedPtr response);
@@ -76,6 +80,8 @@ private:
   void calculateJoints56(
     std::vector<double> & joint_state,
     const geometry_msgs::msg::Point & handtip_rel_pos);
+
+  const rosbag2_cpp::StorageOptions storage_options_;
 
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr manage_processing_sub_;
