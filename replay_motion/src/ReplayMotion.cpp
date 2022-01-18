@@ -43,51 +43,39 @@ ReplayMotion::ReplayMotion(
   manage_processing_sub_ = this->create_subscription<std_msgs::msg::Bool>(
     "system_manager/manage", 1, manage_proc_callback);
 
-  if (!rcpputils::fs::exists(rcpputils::fs::path("replay.csv"))) {
+  int i = 0;
+  while (rcpputils::fs::exists(rcpputils::fs::path("motion" + std::to_string(i + 1) + ".csv"))) {
+    csv_path_.push_back("motion" + std::to_string(i + 1) + ".csv");
+    i++;
+  }
+  if (!csv_path_.size()) {
     RCLCPP_ERROR(this->get_logger(), "File does not exist, stopping node");
     rclcpp::shutdown();
     return;
   }
-  csv_in_.open("replay.csv");
-  std::string line;
-  std::string value;
+  csv_in_.open(csv_path_[0]);
   std::vector<double> joint_angles;
-  if (csv_in_ >> std::ws && std::getline(csv_in_, line)) {
-    std::stringstream s(line);
-    double double_value;
-    while (std::getline(s, value, ',')) {
-      try {
-        double_value = std::stod(value);
-      } catch (const std::invalid_argument & ia) {
-        RCLCPP_ERROR(this->get_logger(), ia.what());
-        RCLCPP_ERROR(
-          this->get_logger(),
-          "Could not convert to double, stopping node");
-        rclcpp::shutdown();
-        return;
-      }
-      if (!isnan(double_value)) {joint_angles.push_back(double_value);}
-    }
-    if (joint_angles.size() != 7) {
-      RCLCPP_ERROR(this->get_logger(), "The number of joint values is not 7, stopping node");
-      rclcpp::shutdown();
-      return;
-    }
 
-    reference_ = std::make_shared<sensor_msgs::msg::JointState>();
-    reference_->position.resize(7);
-    reference_->position = joint_angles;
-    if (!measured_joint_state_) {measured_joint_state_ = reference_;}
-    if (!checkJointLimits(joint_angles)) {
-      RCLCPP_ERROR(this->get_logger(), "First point is exceeding limits, stopping node");
-      rclcpp::shutdown();
-      return;
-    }
-  } else {
-    RCLCPP_ERROR(this->get_logger(), "File is empty, stopping node");
+  if (!processCSV(joint_angles)) {
+    RCLCPP_INFO(this->get_logger(), "Stopping node");
     rclcpp::shutdown();
     return;
   }
+
+  reference_ = std::make_shared<sensor_msgs::msg::JointState>();
+  reference_->position.resize(7);
+  reference_->position = joint_angles;
+  if (!measured_joint_state_) {
+    measured_joint_state_ = reference_;
+  }
+  if (!checkJointLimits(joint_angles)) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "First point is exceeding limits, stopping node");
+    rclcpp::shutdown();
+    return;
+  }
+
   cbg_ = this->create_callback_group(
     rclcpp::callback_group::CallbackGroupType::MutuallyExclusive);
   set_rate_client_ = this->create_client<kuka_sunrise_interfaces::srv::SetDouble>(
@@ -168,53 +156,72 @@ void ReplayMotion::timerCallback()
   } else {
     reference_publisher_->publish(*reference_);
 
-    std::string line;
-    std::string value;
     std::vector<double> joint_angles;
-    if (!std::getline(csv_in_, line)) {
-      if (repeat_count_) {
-        repeat_count_--;
-        csv_in_.close();
-        csv_in_.open("replay.csv");
-        std::getline(csv_in_, line);
-
-        RCLCPP_INFO(this->get_logger(), "End of file reached, repeating");
-        RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
-      } else {
-        RCLCPP_INFO(
-          this->get_logger(),
-          "End of file reached, stopping publishing");
-        rclcpp::shutdown();
-        return;
-      }
-    }
-
-    std::stringstream s(line);
-    double double_value;
-    while (std::getline(s, value, ',')) {
-      try {
-        double_value = std::stod(value);
-      } catch (const std::invalid_argument & ia) {
-        RCLCPP_ERROR(this->get_logger(), ia.what());
-        RCLCPP_ERROR(
-          this->get_logger(),
-          "Could not convert to double, stopping node");
-        rclcpp::shutdown();
-        return;
-      }
-      if (!isnan(double_value)) {
-        joint_angles.push_back(double_value);
-      }
-    }
-    if (joint_angles.size() != 7) {
-      RCLCPP_ERROR(
-        this->get_logger(),
-        "The number of joint values is not 7, stopping node");
+    if (!processCSV(joint_angles)) {
+      RCLCPP_INFO(this->get_logger(), "Stopping node");
       rclcpp::shutdown();
       return;
     }
     reference_->position = joint_angles;
   }
+}
+
+bool ReplayMotion::processCSV(
+  std::vector<double> & joint_angles,
+  bool last_only)
+{
+  std::string line;
+  std::string value;
+  if (last_only) {
+    std::ifstream csv_last;
+    csv_last.open(csv_path_.back());
+    line = getLastLine(csv_last);
+  } else if (!std::getline(csv_in_, line)) {
+    if (csv_count_ != csv_path_.size()) {
+      RCLCPP_INFO(this->get_logger(), "End of file reached, switching to next one");
+      csv_in_.close();
+      csv_in_.open(csv_path_[csv_count_]);
+      std::getline(csv_in_, line);  // TODO(Svastits): check if empty
+      csv_count_++;
+    } else if (repeat_count_) {
+      repeat_count_--;
+      csv_in_.close();
+      csv_in_.open(csv_path_[0]);
+      std::getline(csv_in_, line);
+
+      RCLCPP_INFO(this->get_logger(), "End of file reached, repeating");
+      RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
+    } else {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "End of file reached");
+      return false;
+    }
+  }
+
+  std::stringstream s(line);
+  double double_value;
+  while (std::getline(s, value, ',')) {
+    try {
+      double_value = std::stod(value);
+    } catch (const std::invalid_argument & ia) {
+      RCLCPP_ERROR(this->get_logger(), ia.what());
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "Could not convert to double");
+      return false;
+    }
+    if (!isnan(double_value)) {
+      joint_angles.push_back(double_value);
+    }
+  }
+  if (joint_angles.size() != 7) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "The number of joint values is not 7");
+    return false;
+  }
+  return true;
 }
 
 rcl_interfaces::msg::SetParametersResult ReplayMotion::onParamChange(
@@ -301,32 +308,8 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
     return false;
   }
   if (param.as_int()) {
-    std::ifstream csv_last;
-    csv_last.open("replay.csv");
-    std::string value;
-    std::string line = getLastLine(csv_last);
     std::vector<double> joint_angles;
-    std::stringstream s(line);
-    double double_value;
-    while (std::getline(s, value, ',')) {
-      try {
-        double_value = std::stod(value);
-      } catch (const std::invalid_argument & ia) {
-        RCLCPP_ERROR(this->get_logger(), ia.what());
-        RCLCPP_ERROR(
-          this->get_logger(),
-          "Could not convert last values to double");
-        rclcpp::shutdown();
-        return false;
-      }
-      if (!isnan(double_value)) {
-        joint_angles.push_back(double_value);
-      }
-    }
-    if (joint_angles.size() != 7) {
-      RCLCPP_ERROR(
-        this->get_logger(),
-        "The number of the last joint values is not 7");
+    if (!processCSV(joint_angles, true)) {
       return false;
     }
     double dist_sum = 0;
