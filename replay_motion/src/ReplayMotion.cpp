@@ -44,8 +44,12 @@ ReplayMotion::ReplayMotion(
     "system_manager/manage", 1, manage_proc_callback);
 
   int i = 0;
-  while (rcpputils::fs::exists(rcpputils::fs::path("motion" + std::to_string(i + 1) + ".csv"))) {
-    csv_path_.push_back("motion" + std::to_string(i + 1) + ".csv");
+  while (rcpputils::fs::exists(
+      rcpputils::fs::path(
+        "replay/motion" + std::to_string(
+          i + 1) + ".csv")))
+  {
+    csv_path_.push_back("replay/motion" + std::to_string(i + 1) + ".csv");
     i++;
   }
   if (!csv_path_.size()) {
@@ -53,7 +57,13 @@ ReplayMotion::ReplayMotion(
     rclcpp::shutdown();
     return;
   }
+  RCLCPP_INFO(this->get_logger(), "Found %i '.csv' files to replay", i);
   csv_in_.open(csv_path_[0]);
+  if (csv_in_ >> std::ws && csv_in_.peek() == std::ifstream::traits_type::eof()) {
+    RCLCPP_ERROR(this->get_logger(), "File is empty, stopping node");
+    rclcpp::shutdown();
+    return;
+  }
   std::vector<double> joint_angles;
 
   if (!processCSV(joint_angles)) {
@@ -181,8 +191,14 @@ bool ReplayMotion::processCSV(
       RCLCPP_INFO(this->get_logger(), "End of file reached, switching to next one");
       csv_in_.close();
       csv_in_.open(csv_path_[csv_count_]);
-      std::getline(csv_in_, line);  // TODO(Svastits): check if empty
       csv_count_++;
+      if (csv_in_ >> std::ws && !std::getline(csv_in_, line)) {
+        RCLCPP_ERROR(
+          this->get_logger(),
+          "Next file is empty");
+        return false;
+      }
+      // TODO(Svastits): check deviation from endpoint of previous one
     } else if (repeat_count_) {
       repeat_count_--;
       csv_in_.close();
