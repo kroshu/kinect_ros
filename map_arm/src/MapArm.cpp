@@ -35,24 +35,11 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
     "reference_joint_state", qos_);
 
-  auto manage_proc_callback = [this](
-    std_msgs::msg::Bool::SharedPtr valid) {
-      if (valid->data) {
-        valid_ = true;
-        RCLCPP_INFO(
-          this->get_logger(),
-          "System manager is active again, continuing motion");
-      } else {
-        valid_ = false;
-        RCLCPP_WARN(
-          this->get_logger(),
-          "LBR state is not 4, reactivate or restart system manager!");
-      }
-    };
   cbg_ = this->create_callback_group(
     rclcpp::CallbackGroupType::MutuallyExclusive);
   manage_processing_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "system_manager/manage", 1, manage_proc_callback);
+    "system_manager/manage", 1, [this](
+      std_msgs::msg::Bool::SharedPtr valid) {manageProcessingCallback(valid);});
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change", ::rmw_qos_profile_default, cbg_);
 
@@ -108,10 +95,13 @@ rcl_interfaces::msg::SetParametersResult MapArm::onParamChange(
 MapArm::~MapArm()
 {
   rosbag_writer_->reset();
-  char file_name[] = storage_options_.uri.c_str();
-  if (!rename(
-      file_name + "/" + file_name + "_0.db3",
-      file_name + "/motion" + std::to_string(bag_count_).c_str()))
+  std::string old_path = storage_options_.uri + "/" + storage_options_.uri + "_0.db3";
+  std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
+    ".db3";
+  // rename returns 0 is successful
+  if (rename(
+      old_path.c_str(),
+      new_path.c_str()))
   {
     RCLCPP_ERROR(
       get_logger(),
@@ -364,10 +354,9 @@ void MapArm::writeBagFile(const sensor_msgs::msg::JointState & reference)
 }
 
 void MapArm::manageProcessingCallback(
-  std_srvs::srv::SetBool::Request::SharedPtr request,
-  std_srvs::srv::SetBool::Response::SharedPtr response)
+  std_msgs::msg::Bool::SharedPtr valid)
 {
-  if (request->data) {
+  if (valid) {
     valid_ = true;
     RCLCPP_INFO(
       this->get_logger(),
@@ -397,10 +386,12 @@ void MapArm::manageProcessingCallback(
       "LBR state is not 4, reactivate or restart system manager!");
     if (record_) {
       rosbag_writer_->reset();
-      char file_name[] = storage_options_.uri.c_str();
-      if (!rename(
-          file_name + "/" + file_name + "_0.db3",
-          file_name + "/motion" + std::to_string(bag_count_).c_str()))
+      std::string old_path = storage_options_.uri + "/" + storage_options_.uri + ".db3";
+      std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
+        "_0.db3";
+      if (rename(
+          old_path.c_str(),
+          new_path.c_str()))
       {
         RCLCPP_ERROR(
           get_logger(),
@@ -408,7 +399,6 @@ void MapArm::manageProcessingCallback(
       }
     }
   }
-  response->success = true;
 }
 
 void MapArm::calculateJoints12(

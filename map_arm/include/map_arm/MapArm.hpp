@@ -67,8 +67,7 @@ private:
   bool onMovingAvgChangeRequest(const rclcpp::Parameter & param);
   void writeBagFile(const sensor_msgs::msg::JointState & reference);
   void manageProcessingCallback(
-    std_srvs::srv::SetBool::Request::SharedPtr request,
-    std_srvs::srv::SetBool::Response::SharedPtr response);
+    std_msgs::msg::Bool::SharedPtr valid);
   void markersReceivedCallback(
     visualization_msgs::msg::MarkerArray::SharedPtr msg);
   void calculateJoints12(
