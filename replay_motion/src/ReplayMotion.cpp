@@ -127,6 +127,7 @@ ReplayMotion::ReplayMotion(
   RCLCPP_INFO(
     this->get_logger(), "Starting publishing with a rate of %lf Hz",
     static_cast<double>(1000000 / duration_us));
+  delay_count_ = static_cast<int>(delays_[0] * 1000000 / duration_us);
 }
 
 void ReplayMotion::timerCallback()
@@ -170,6 +171,7 @@ void ReplayMotion::timerCallback()
       reference_publisher_->publish(to_start);
     }
   } else {
+    reference_->header.stamp = this->now();
     reference_publisher_->publish(*reference_);
 
     std::vector<double> joint_angles;
