@@ -118,7 +118,9 @@ ReplayMotion::ReplayMotion(
     });
 
   // default frequency for "rate = 1" is 8Hz (125 ms)
-  auto duration_us = static_cast<int>(125000 / rates_[0]);
+  // rates parameter is valid only after starting actual motion
+  // using default until then
+  auto duration_us = static_cast<int>(125000);
   timer_ = this->create_wall_timer(
     std::chrono::microseconds(duration_us),
     [this]() {
@@ -150,7 +152,7 @@ void ReplayMotion::timerCallback()
       joint_error.push_back(
         measured_joint_state_->position[i] +
         (static_cast<int>(dist > 0) - static_cast<int>(dist < 0)) * std::min(
-          0.03 / rates_[0], abs(
+          0.03, abs(
             dist)));
     }
     // (dist > 0) - (dist < 0) is sgn function
@@ -205,23 +207,25 @@ bool ReplayMotion::processCSV(
       RCLCPP_INFO(this->get_logger(), "End of file reached, switching to next one");
       file_change = true;
       timer_->cancel();
-      auto duration_us = static_cast<int>(125000 / rates_[csv_count_ - 1]);
+      auto duration_us = static_cast<int>(125000 / rates_[csv_count_]);
       timer_ = this->create_wall_timer(
         std::chrono::microseconds(duration_us),
         [this]() {
           this->timerCallback();
         });
-      delay_count_ = static_cast<int>(delays_[csv_count_ - 1] * 1000000 / duration_us);
+      delay_count_ = static_cast<int>(delays_[csv_count_] * 1000000 / duration_us);
+      if (!setControllerRate(rates_[csv_count_])) {
+        return false;
+      }
       csv_in_.close();
       csv_in_.open(csv_path_[csv_count_]);
-      csv_count_++;
       if (csv_in_ >> std::ws && !std::getline(csv_in_, line)) {
         RCLCPP_ERROR(
           this->get_logger(),
           "Next file is empty");
         return false;
       }
-      // TODO(Svastits): check deviation from endpoint of previous one
+      csv_count_++;
     } else if (repeat_count_) {
       repeat_count_--;
       csv_in_.close();
@@ -342,6 +346,16 @@ bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
   }
 
   rates_ = param.as_double_array();
+  if (rates_[0] != 1) {
+    timer_->cancel();
+    auto duration_us = static_cast<int>(125000 / rates_[0]);
+    timer_ = this->create_wall_timer(
+      std::chrono::microseconds(duration_us),
+      [this]() {
+        this->timerCallback();
+      });
+  }
+
   return true;
 }
 
