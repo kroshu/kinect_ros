@@ -39,7 +39,9 @@ private:
   bool reached_start_ = false;
   bool valid_ = true;
   int repeat_count_ = 0;  // negative numbers mean repeat infinitely
-  double rate_ = 1;
+  int delay_count_ = 0;
+  std::vector<double> rates_ = std::vector<double>({1.0});
+  std::vector<double> delays_ = std::vector<double>({0.0});
   unsigned int csv_count_ = 1;
   std::vector<std::string> csv_path_;
   std::ifstream csv_in_;
@@ -55,9 +57,11 @@ private:
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
 
   void timerCallback();
-  bool onRateChangeRequest(const rclcpp::Parameter & param);
+  bool onRatesChangeRequest(const rclcpp::Parameter & param);
+  bool onDelaysChangeRequest(const rclcpp::Parameter & param);
   bool processCSV(std::vector<double> & joint_angles, bool last_only = false);
   bool onRepeatCountChangeRequest(const rclcpp::Parameter & param);
+  bool setControllerRate(const double & rate);
   bool checkJointLimits(const std::vector<double> & angles);
   rcl_interfaces::msg::SetParametersResult onParamChange(
     const std::vector<rclcpp::Parameter> & parameters);

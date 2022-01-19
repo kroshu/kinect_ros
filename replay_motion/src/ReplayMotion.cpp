@@ -91,12 +91,17 @@ ReplayMotion::ReplayMotion(
   set_rate_client_ = this->create_client<kuka_sunrise_interfaces::srv::SetDouble>(
     "joint_controller/set_rate", ::rmw_qos_profile_default, cbg_);
 
-  this->declare_parameter("rate", rclcpp::ParameterValue(rate_));
+  this->declare_parameter(
+    "rates", std::vector<double>(csv_path_.size(), 1.0));
 
   param_callback_ = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
       return this->onParamChange(parameters);
     });
+
+  // Time to wait before part of motion in seconds
+  this->declare_parameter(
+    "delays", std::vector<double>(csv_path_.size(), 0.0));
 
   this->declare_parameter(
     "repeat_count",
@@ -112,7 +117,8 @@ ReplayMotion::ReplayMotion(
       measured_joint_state_ = state;
     });
 
-  auto duration_us = static_cast<int>(125000 / rate_);  // default rate is 8Hz (125 ms)
+  // default frequency for "rate = 1" is 8Hz (125 ms)
+  auto duration_us = static_cast<int>(125000 / rates_[0]);
   timer_ = this->create_wall_timer(
     std::chrono::microseconds(duration_us),
     [this]() {
@@ -143,13 +149,13 @@ void ReplayMotion::timerCallback()
       joint_error.push_back(
         measured_joint_state_->position[i] +
         (static_cast<int>(dist > 0) - static_cast<int>(dist < 0)) * std::min(
-          0.03 / rate_, abs(
+          0.03 / rates_[0], abs(
             dist)));
     }
     // (dist > 0) - (dist < 0) is sgn function
     to_start.position = joint_error;
     if (dist_sum < 0.001) {
-      if (!onRateChangeRequest(this->get_parameter("rate"))) {
+      if (!onRatesChangeRequest(this->get_parameter("rates"))) {
         RCLCPP_ERROR(
           this->get_logger(),
           "Could not sync with joint controller, stopping node");
@@ -180,6 +186,12 @@ bool ReplayMotion::processCSV(
   std::vector<double> & joint_angles,
   bool last_only)
 {
+  if (delay_count_) {
+    delay_count_--;
+    joint_angles = reference_->position;
+    return true;
+  }
+  bool file_change = false;
   std::string line;
   std::string value;
   if (last_only) {
@@ -189,6 +201,15 @@ bool ReplayMotion::processCSV(
   } else if (!std::getline(csv_in_, line)) {
     if (csv_count_ != csv_path_.size()) {
       RCLCPP_INFO(this->get_logger(), "End of file reached, switching to next one");
+      file_change = true;
+      timer_->cancel();
+      auto duration_us = static_cast<int>(125000 / rates_[csv_count_ - 1]);
+      timer_ = this->create_wall_timer(
+        std::chrono::microseconds(duration_us),
+        [this]() {
+          this->timerCallback();
+        });
+      delay_count_ = static_cast<int>(delays_[csv_count_ - 1] * 1000000 / duration_us);
       csv_in_.close();
       csv_in_.open(csv_path_[csv_count_]);
       csv_count_++;
@@ -237,6 +258,21 @@ bool ReplayMotion::processCSV(
       "The number of joint values is not 7");
     return false;
   }
+  if (file_change) {
+    double dist_sum = 0;
+    for (int i = 0; i < 7; i++) {
+      double dist = reference_->position[i] -
+        joint_angles[i];
+      dist_sum += pow(dist, 2);
+    }
+
+    if (dist_sum > 0.1) {
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "The distance to start of next motion is too big");
+      return false;
+    }
+  }
   return true;
 }
 
@@ -246,10 +282,12 @@ rcl_interfaces::msg::SetParametersResult ReplayMotion::onParamChange(
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
   for (const rclcpp::Parameter & param : parameters) {
-    if (param.get_name() == "rate") {
-      result.successful = onRateChangeRequest(param);
+    if (param.get_name() == "rates") {
+      result.successful = onRatesChangeRequest(param);
     } else if (param.get_name() == "repeat_count") {
       result.successful = onRepeatCountChangeRequest(param);
+    } else if (param.get_name() == "delays") {
+      result.successful = onDelaysChangeRequest(param);
     } else {
       RCLCPP_ERROR(
         this->get_logger(), "Invalid parameter name %s",
@@ -260,32 +298,56 @@ rcl_interfaces::msg::SetParametersResult ReplayMotion::onParamChange(
   return result;
 }
 
-bool ReplayMotion::onRateChangeRequest(const rclcpp::Parameter & param)
+bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
 {
   if (param.get_type() !=
-    rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE)
+    rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE_ARRAY)
   {
     RCLCPP_ERROR(
       this->get_logger(), "Invalid parameter type for parameter %s",
       param.get_name().c_str());
     return false;
   }
+
+  if (param.as_double_array().size() != csv_path_.size()) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Invalid parameter array length for parameter %s",
+      param.get_name().c_str());
+    return false;
+  }
+
   if (reached_start_) {
     RCLCPP_ERROR(
       this->get_logger(),
-      "The rate can't be changed if motion has already started",
+      "The rates can't be changed if motion has already started",
       param.get_name().c_str());
     return false;
   }
-  if (param.as_double() < 0.2 || param.as_double() > 5) {
-    RCLCPP_ERROR(
-      this->get_logger(),
-      "Invalid parameter value for parameter %s",
-      param.get_name().c_str());
-    RCLCPP_ERROR(this->get_logger(), "0.2 < rate < 5 must be true");
+
+  for (auto & rate : param.as_double_array()) {
+    if (rate < 0.2 || rate > 5) {
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "Invalid parameter value for parameter %s",
+        param.get_name().c_str());
+      RCLCPP_ERROR(this->get_logger(), "0.2 < rate < 5 must be true");
+      return false;
+    }
+  }
+  if (!setControllerRate(param.as_double_array()[0])) {
     return false;
   }
-  auto set_double_request = std::make_shared<kuka_sunrise_interfaces::srv::SetDouble::Request>();
+
+  rates_ = param.as_double_array();
+  return true;
+}
+
+bool ReplayMotion::setControllerRate(const double & rate)
+{
+  auto set_double_request = std::make_shared<
+    kuka_sunrise_interfaces::srv::SetDouble::Request>();
+  set_double_request->data = rate;
   auto future_result = set_rate_client_->async_send_request(set_double_request);
   auto future_status = kuka_sunrise::wait_for_result(
     future_result,
@@ -302,7 +364,47 @@ bool ReplayMotion::onRateChangeRequest(const rclcpp::Parameter & param)
       "Future result not success, could not set rate of joint controller");
     return false;
   }
-  rate_ = param.as_double();
+  return true;
+}
+
+
+bool ReplayMotion::onDelaysChangeRequest(const rclcpp::Parameter & param)
+{
+  if (param.get_type() !=
+    rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE_ARRAY)
+  {
+    RCLCPP_ERROR(
+      this->get_logger(), "Invalid parameter type for parameter %s",
+      param.get_name().c_str());
+    return false;
+  }
+
+  if (param.as_double_array().size() != csv_path_.size()) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Invalid parameter array length for parameter %s",
+      param.get_name().c_str());
+    return false;
+  }
+
+  if (reached_start_) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "The rate can't be changed if motion has already started",
+      param.get_name().c_str());
+    return false;
+  }
+  for (auto delay : param.as_double_array()) {
+    if (delay < 0) {
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "Invalid parameter value for parameter %s",
+        param.get_name().c_str());
+      RCLCPP_ERROR(this->get_logger(), "Delay must be positive");
+      return false;
+    }
+  }
+  delays_ = param.as_double_array();
   return true;
 }
 
