@@ -117,10 +117,9 @@ ReplayMotion::ReplayMotion(
       measured_joint_state_ = state;
     });
 
-  // default frequency for "rate = 1" is 8Hz (125 ms)
   // rates parameter is valid only after starting actual motion
   // using default until then
-  auto duration_us = static_cast<int>(125000);
+  auto duration_us = static_cast<int>(ReplayMotion::default_period_us_);
   timer_ = this->create_wall_timer(
     std::chrono::microseconds(duration_us),
     [this]() {
@@ -128,8 +127,8 @@ ReplayMotion::ReplayMotion(
     });
   RCLCPP_INFO(
     this->get_logger(), "Starting publishing with a rate of %lf Hz",
-    static_cast<double>(1000000 / duration_us));
-  delay_count_ = static_cast<int>(delays_[0] * 1000000 / duration_us);
+    static_cast<double>(ReplayMotion::us_in_sec_ / duration_us));
+  delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
 }
 
 void ReplayMotion::timerCallback()
@@ -207,13 +206,13 @@ bool ReplayMotion::processCSV(
       RCLCPP_INFO(this->get_logger(), "End of file reached, switching to next one");
       file_change = true;
       timer_->cancel();
-      auto duration_us = static_cast<int>(125000 / rates_[csv_count_]);
+      auto duration_us = static_cast<int>(ReplayMotion::default_period_us_ / rates_[csv_count_]);
       timer_ = this->create_wall_timer(
         std::chrono::microseconds(duration_us),
         [this]() {
           this->timerCallback();
         });
-      delay_count_ = static_cast<int>(delays_[csv_count_] * 1000000 / duration_us);
+      delay_count_ = static_cast<int>(delays_[csv_count_] * ReplayMotion::us_in_sec_ / duration_us);
       if (!setControllerRate(rates_[csv_count_])) {
         return false;
       }
@@ -228,12 +227,11 @@ bool ReplayMotion::processCSV(
       csv_count_++;
     } else if (repeat_count_) {
       repeat_count_--;
+      RCLCPP_INFO(this->get_logger(), "End of motion reached, repeating");
+      RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
       csv_in_.close();
       csv_in_.open(csv_path_[0]);
       std::getline(csv_in_, line);
-
-      RCLCPP_INFO(this->get_logger(), "End of file reached, repeating");
-      RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
     } else {
       RCLCPP_INFO(
         this->get_logger(),
@@ -265,14 +263,14 @@ bool ReplayMotion::processCSV(
     return false;
   }
   if (file_change) {
-    double dist_sum = 0;
+    double dist_max = 0;
     for (int i = 0; i < 7; i++) {
       double dist = reference_->position[i] -
         joint_angles[i];
-      dist_sum += pow(dist, 2);
+      if (dist_max < abs(dist)) {dist_max = abs(dist);}
     }
 
-    if (dist_sum > 0.1) {
+    if (dist_max > 0.1) {
       RCLCPP_ERROR(
         this->get_logger(),
         "The distance to start of next motion is too big");
@@ -348,7 +346,7 @@ bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
   rates_ = param.as_double_array();
   if (rates_[0] != 1) {
     timer_->cancel();
-    auto duration_us = static_cast<int>(125000 / rates_[0]);
+    auto duration_us = static_cast<int>(ReplayMotion::default_period_us_ / rates_[0]);
     timer_ = this->create_wall_timer(
       std::chrono::microseconds(duration_us),
       [this]() {
@@ -446,14 +444,14 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
     if (!processCSV(joint_angles, true)) {
       return false;
     }
-    double dist_sum = 0;
+    double dist_max = 0;
     for (int i = 0; i < 7; i++) {
       double dist = reference_->position[i] -
         joint_angles[i];
-      dist_sum += pow(dist, 2);
+      if (dist_max < abs(dist)) {dist_max = abs(dist);}
     }
 
-    if (dist_sum > 0.1) {
+    if (dist_max > 0.1) {
       RCLCPP_ERROR(
         this->get_logger(),
         "The deviation of start and end of motion is too big");

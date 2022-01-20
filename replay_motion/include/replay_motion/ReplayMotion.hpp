@@ -72,6 +72,10 @@ private:
   std::vector<double> upper_limits_rad_ = std::vector<double>(
     {2.67, 1.88,
       2.67, 1.88, 2.67, 1.88, 2.74});
+
+  static constexpr int us_in_sec_ = 1000000;
+  // default frequency for "rate = 1" is 8Hz (125 ms)
+  static constexpr int default_period_us_ = 125000;
 };
 }  // namespace replay_motion
 
