@@ -189,6 +189,7 @@ bool ReplayMotion::processCSV(
   std::vector<double> & joint_angles,
   bool last_only)
 {
+  // Getting the next line of a csv based on the parameters
   if (delay_count_) {
     delay_count_--;
     joint_angles = reference_->position;
@@ -240,6 +241,7 @@ bool ReplayMotion::processCSV(
     }
   }
 
+  // Processing the line and converting to double array
   std::stringstream s(line);
   double double_value;
   while (std::getline(s, value, ',')) {
@@ -365,7 +367,7 @@ bool ReplayMotion::setControllerRate(const double & rate)
   auto future_result = set_rate_client_->async_send_request(set_double_request);
   auto future_status = kuka_sunrise::wait_for_result(
     future_result,
-    std::chrono::milliseconds(3000));
+    std::chrono::milliseconds(100));
   if (future_status != std::future_status::ready) {
     RCLCPP_ERROR(
       get_logger(),
