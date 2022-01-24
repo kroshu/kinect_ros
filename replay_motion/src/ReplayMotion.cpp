@@ -19,8 +19,6 @@
 #include <vector>
 #include <algorithm>
 
-// TODO(Svastits): more csv files with wait between and differing rates
-
 std::string getLastLine(std::ifstream & in)
 {
   std::string line;
