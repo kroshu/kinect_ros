@@ -25,7 +25,7 @@ find_package(kuka_sunrise_interfaces REQUIRED)
 include_directories(include)
 
 add_executable(replay_motion src/ReplayMotion.cpp)
-ament_target_dependencies(replay_motion rclcpp sensor_msgs kuka_sunrise kuka_sunrise_interfaces)
+ament_target_dependencies(replay_motion rclcpp sensor_msgs kuka_sunrise_interfaces)
 target_link_libraries(kuka_sunrise::internal)
 
 install(TARGETS replay_motion
