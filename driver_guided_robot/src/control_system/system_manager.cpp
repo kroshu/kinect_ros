@@ -29,7 +29,7 @@ SystemManager::SystemManager(
   qos_.reliable();
   cbg_ = this->create_callback_group(
     rclcpp::CallbackGroupType::MutuallyExclusive);
-  change_robot_commanding_state_client_ = this->create_client<
+  change_robot_manager_state_client_ = this->create_client<
     std_srvs::srv::SetBool>(
     ROBOT_INTERFACE + "/set_commanding_state",
     qos_.get_rmw_qos_profile(), cbg_);
@@ -43,21 +43,29 @@ SystemManager::SystemManager(
   get_state_client_ =
     this->create_client<kuka_sunrise_interfaces::srv::GetState>(
     "robot_control/get_fri_state");
-  manage_processing_client_ = this->create_client<std_srvs::srv::SetBool>(
-    "manage_processing");
+  manage_processing_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
+    "system_manager/manage", 1);
+  manage_processing_publisher_->on_activate();
   auto trigger_change_callback = [this](
-    const std::shared_ptr<rmw_request_id_t> request_header,
-    std_srvs::srv::Trigger::Request::SharedPtr request,
+    std_srvs::srv::Trigger::Request::SharedPtr,
     std_srvs::srv::Trigger::Response::SharedPtr response) {
-      (void) request_header;
-      (void) request;
       response->success = true;
-      auto setBool_request =
-        std::make_shared<std_srvs::srv::SetBool::Request>();
-      setBool_request->data = false;
-      manage_processing_client_->async_send_request(setBool_request);
-      RCLCPP_WARN(get_logger(), "Motion stopped externally, deactivating controls and managers");
-      this->deactivate();
+
+      if (this->get_current_state().label() == "active") {
+        std_msgs::msg::Bool activate;
+        activate.data = false;
+        manage_processing_publisher_->publish(activate);
+        if (this->deactivate().label() != "inactive") {
+          response->success = false;
+        }
+        RCLCPP_WARN(
+          get_logger(),
+          "Motion stopped externally, deactivating controls and managers");
+      } else {
+        RCLCPP_WARN(
+          get_logger(),
+          "Invalid request, system manager not active");
+      }
     };
   trigger_change_service_ = this->create_service<std_srvs::srv::Trigger>(
     "system_manager/trigger_change", trigger_change_callback);
@@ -65,9 +73,8 @@ SystemManager::SystemManager(
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SystemManager::
 on_configure(
-  const rclcpp_lifecycle::State & state)
+  const rclcpp_lifecycle::State &)
 {
-  (void) state;
   if (!changeState(
       ROBOT_INTERFACE,
       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE))
@@ -78,15 +85,20 @@ on_configure(
       JOINT_CONTROLLER,
       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE))
   {
+    if (!changeState(
+        ROBOT_INTERFACE,
+        lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP))
+    {
+      RCLCPP_ERROR(get_logger(), "Could not solve differing states, restart needed");
+    }
     return ERROR;
   }
   return SUCCESS;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SystemManager::on_cleanup(
-  const rclcpp_lifecycle::State & state)
+  const rclcpp_lifecycle::State &)
 {
-  (void) state;
   if (!changeState(
       ROBOT_INTERFACE,
       lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP))
@@ -104,9 +116,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn System
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-SystemManager::on_activate(const rclcpp_lifecycle::State & state)
+SystemManager::on_activate(const rclcpp_lifecycle::State &)
 {
-  (void) state;
   if (!changeState(
       ROBOT_INTERFACE,
       lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
@@ -117,25 +128,38 @@ SystemManager::on_activate(const rclcpp_lifecycle::State & state)
       JOINT_CONTROLLER,
       lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
   {
+    if (!changeState(
+        ROBOT_INTERFACE,
+        lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))
+    {
+      RCLCPP_ERROR(get_logger(), "Could not solve differing states, restart needed");
+    }
     return ERROR;
   }
   if (!robot_control_active_ && !changeRobotCommandingState(true)) {
-    return ERROR;
+    if (!changeState(
+        ROBOT_INTERFACE,
+        lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE) ||
+      !changeState(
+        JOINT_CONTROLLER,
+        lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))
+    {
+      RCLCPP_ERROR(get_logger(), "Could not solve differing states, restart needed");
+    }
+    return FAILURE;
   }
   polling_thread_ = std::thread(&SystemManager::monitoringLoop, this);
   robot_control_active_ = true;
-  auto setBool_request =
-    std::make_shared<std_srvs::srv::SetBool::Request>();
-  setBool_request->data = true;
-  manage_processing_client_->async_send_request(setBool_request);
+  std_msgs::msg::Bool activate;
+  activate.data = true;
+  manage_processing_publisher_->publish(activate);
   return SUCCESS;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SystemManager::
 on_deactivate(
-  const rclcpp_lifecycle::State & state)
+  const rclcpp_lifecycle::State &)
 {
-  (void) state;
   if (robot_control_active_ && !changeRobotCommandingState(false)) {
     return ERROR;
   }
@@ -193,9 +217,8 @@ SystemManager::on_shutdown(const rclcpp_lifecycle::State & state)
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SystemManager::on_error(
-  const rclcpp_lifecycle::State & state)
+  const rclcpp_lifecycle::State &)
 {
-  (void) state;
   RCLCPP_INFO(get_logger(), "An error occured");
   return SUCCESS;
 }
@@ -226,13 +249,13 @@ bool SystemManager::changeState(
     future_result,
     std::chrono::milliseconds(3000));
   if (future_status != std::future_status::ready) {
-    RCLCPP_ERROR(get_logger(), "Future status not ready");
+    RCLCPP_ERROR(get_logger(), "Future status not ready, could not change state of " + node_name);
     return false;
   }
   if (future_result.get()->success) {
     return true;
   } else {
-    RCLCPP_ERROR(get_logger(), "Future result not success");
+    RCLCPP_ERROR(get_logger(), "Future result not success, could not change state of " + node_name);
     return false;
   }
 }
@@ -262,10 +285,9 @@ void SystemManager::getFRIState()
       if (lbr_state_ != 4 && !stop_) {
         stop_ = true;
       } else if (lbr_state_ != 4 && stop_) {
-        auto setBool_request =
-          std::make_shared<std_srvs::srv::SetBool::Request>();
-        setBool_request->data = false;
-        manage_processing_client_->async_send_request(setBool_request);
+        std_msgs::msg::Bool activate;
+        activate.data = false;
+        manage_processing_publisher_->publish(activate);
       } else {
         stop_ = false;
       }
@@ -276,30 +298,33 @@ void SystemManager::getFRIState()
     response_received_callback);
 }
 
+// Activate the ActivatableInterface of robot_manager_node
 bool SystemManager::changeRobotCommandingState(bool is_active)
 {
   auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = is_active;
-  if (!change_robot_commanding_state_client_->wait_for_service(
+  if (!change_robot_manager_state_client_->wait_for_service(
       std::chrono::milliseconds(2000)))
   {
     RCLCPP_ERROR(get_logger(), "Wait for service failed");
     return false;
   }
   auto future_result =
-    change_robot_commanding_state_client_->async_send_request(request);
+    change_robot_manager_state_client_->async_send_request(request);
   auto future_status = kuka_sunrise::wait_for_result(
     future_result,
     std::chrono::milliseconds(3000));
   if (future_status != std::future_status::ready) {
-    RCLCPP_ERROR(get_logger(), "Future status not ready");
+    RCLCPP_ERROR(get_logger(), "Future status not ready, could not change robot commanding state");
     return false;
   }
   if (future_result.get()->success) {
     robot_control_active_ = true;
     return true;
   } else {
-    RCLCPP_ERROR(get_logger(), "Future result not success");
+    RCLCPP_ERROR(
+      get_logger(),
+      "Future result not success, could not change robot commanding state");
     return false;
   }
 }
