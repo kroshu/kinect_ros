@@ -13,9 +13,8 @@
   <depend>visualization_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>std_srvs</depend>
-  <depend>rosbag2_cpp</depend>
-  
-  <build_depend>filter_points</build_depend>
+  <depend>rosbag2_cpp</depend>  
+  <depend>filter_points</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
