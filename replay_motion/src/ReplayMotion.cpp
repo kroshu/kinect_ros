@@ -404,7 +404,7 @@ bool ReplayMotion::onDelaysChangeRequest(const rclcpp::Parameter & param)
   if (reached_start_) {
     RCLCPP_ERROR(
       this->get_logger(),
-      "The rate can't be changed if motion has already started",
+      "The delay can't be changed if motion has already started",
       param.get_name().c_str());
     return false;
   }
