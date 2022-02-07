@@ -126,7 +126,6 @@ ReplayMotion::ReplayMotion(
   RCLCPP_INFO(
     this->get_logger(), "Starting publishing with a rate of %lf Hz",
     static_cast<double>(ReplayMotion::us_in_sec_ / duration_us));
-  delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
 }
 
 void ReplayMotion::timerCallback()
@@ -188,7 +187,7 @@ bool ReplayMotion::processCSV(
   bool last_only)
 {
   // Getting the next line of a csv based on the parameters
-  if (delay_count_) {
+  if (delay_count_ && !last_only) {
     delay_count_--;
     joint_angles = reference_->position;
     return true;
@@ -347,6 +346,7 @@ bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
   if (rates_[0] != 1) {
     timer_->cancel();
     auto duration_us = static_cast<int>(ReplayMotion::default_period_us_ / rates_[0]);
+    delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
     timer_ = this->create_wall_timer(
       std::chrono::microseconds(duration_us),
       [this]() {
