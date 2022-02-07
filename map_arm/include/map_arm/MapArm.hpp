@@ -91,7 +91,7 @@ private:
     std::make_shared<std_srvs::srv::Trigger::Request>();
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
-  rclcpp::callback_group::CallbackGroup::SharedPtr cbg_;
+  rclcpp::CallbackGroup::SharedPtr cbg_;
 };
 }  // namespace filter_points
 

@@ -45,7 +45,7 @@ private:
   unsigned int csv_count_ = 1;
   std::vector<std::string> csv_path_;
   std::ifstream csv_in_;
-  rclcpp::callback_group::CallbackGroup::SharedPtr cbg_;
+  rclcpp::CallbackGroup::SharedPtr cbg_;
   rclcpp::TimerBase::SharedPtr timer_;
   sensor_msgs::msg::JointState::SharedPtr reference_;
   sensor_msgs::msg::JointState::SharedPtr measured_joint_state_;

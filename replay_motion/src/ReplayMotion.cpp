@@ -85,7 +85,7 @@ ReplayMotion::ReplayMotion(
   }
 
   cbg_ = this->create_callback_group(
-    rclcpp::callback_group::CallbackGroupType::MutuallyExclusive);
+    rclcpp::CallbackGroupType::MutuallyExclusive);
   set_rate_client_ = this->create_client<kuka_sunrise_interfaces::srv::SetDouble>(
     "joint_controller/set_rate", ::rmw_qos_profile_default, cbg_);
 

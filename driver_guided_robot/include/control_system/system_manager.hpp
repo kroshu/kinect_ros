@@ -76,7 +76,7 @@ private:
   rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr change_robot_manager_state_client_;
   rclcpp::Client<kuka_sunrise_interfaces::srv::GetState>::SharedPtr get_state_client_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr trigger_change_service_;
-  rclcpp::callback_group::CallbackGroup::SharedPtr cbg_;
+  rclcpp::CallbackGroup::SharedPtr cbg_;
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(10));
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn SUCCESS =
