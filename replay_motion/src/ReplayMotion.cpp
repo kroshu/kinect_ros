@@ -224,12 +224,24 @@ bool ReplayMotion::processCSV(
       }
       csv_count_++;
     } else if (repeat_count_) {
-      repeat_count_--;
       RCLCPP_INFO(this->get_logger(), "End of motion reached, repeating");
       RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
+      timer_->cancel();
+      auto duration_us = static_cast<int>(ReplayMotion::default_period_us_ / rates_[0]);
+      timer_ = this->create_wall_timer(
+        std::chrono::microseconds(duration_us),
+        [this]() {
+          this->timerCallback();
+        });
+      delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
+      if (!setControllerRate(rates_[0])) {
+        return false;
+      }
+      repeat_count_--;
       csv_in_.close();
       csv_in_.open(csv_path_[0]);
       std::getline(csv_in_, line);
+      csv_count_ = 1;
     } else {
       RCLCPP_INFO(
         this->get_logger(),
