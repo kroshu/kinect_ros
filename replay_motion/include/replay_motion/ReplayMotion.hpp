@@ -30,6 +30,13 @@
 
 namespace replay_motion
 {
+std::vector<double> lower_limits_rad_ = std::vector<double>(
+  {-2.67, -1.88,
+    -2.67, -1.88, -2.67, -1.88, -2.74});
+std::vector<double> upper_limits_rad_ = std::vector<double>(
+  {2.67, 1.88,
+    2.67, 1.88, 2.67, 1.88, 2.74});
+
 class ReplayMotion : public rclcpp::Node
 {
 public:
@@ -65,13 +72,6 @@ private:
   bool checkJointLimits(const std::vector<double> & angles);
   rcl_interfaces::msg::SetParametersResult onParamChange(
     const std::vector<rclcpp::Parameter> & parameters);
-
-  std::vector<double> lower_limits_rad_ = std::vector<double>(
-    {-2.67, -1.88,
-      -2.67, -1.88, -2.67, -1.88, -2.74});
-  std::vector<double> upper_limits_rad_ = std::vector<double>(
-    {2.67, 1.88,
-      2.67, 1.88, 2.67, 1.88, 2.74});
 
   static constexpr int us_in_sec_ = 1000000;
   // default frequency for "rate = 1" is 8Hz (125 ms)

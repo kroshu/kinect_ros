@@ -49,7 +49,7 @@ class MapArm : public rclcpp::Node
 {
 public:
   MapArm(const std::string & node_name, const rclcpp::NodeOptions & options);
-  ~MapArm();
+  ~MapArm() override;
 
 private:
   bool valid_ = true;

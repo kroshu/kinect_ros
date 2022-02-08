@@ -296,6 +296,13 @@ rcl_interfaces::msg::SetParametersResult ReplayMotion::onParamChange(
 {
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
+  if (reached_start_) {
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "The parameters can't be changed if motion has already started");
+    result.successful = false;
+    return result;
+  }
   for (const rclcpp::Parameter & param : parameters) {
     if (param.get_name() == "rates") {
       result.successful = onRatesChangeRequest(param);
@@ -328,14 +335,6 @@ bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
     RCLCPP_ERROR(
       this->get_logger(),
       "Invalid parameter array length for parameter %s",
-      param.get_name().c_str());
-    return false;
-  }
-
-  if (reached_start_) {
-    RCLCPP_ERROR(
-      this->get_logger(),
-      "The rates can't be changed if motion has already started",
       param.get_name().c_str());
     return false;
   }
@@ -412,13 +411,6 @@ bool ReplayMotion::onDelaysChangeRequest(const rclcpp::Parameter & param)
     return false;
   }
 
-  if (reached_start_) {
-    RCLCPP_ERROR(
-      this->get_logger(),
-      "The delay can't be changed if motion has already started",
-      param.get_name().c_str());
-    return false;
-  }
   for (auto delay : param.as_double_array()) {
     if (delay < 0) {
       RCLCPP_ERROR(
@@ -440,13 +432,6 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
   {
     RCLCPP_ERROR(
       this->get_logger(), "Invalid parameter type for parameter %s",
-      param.get_name().c_str());
-    return false;
-  }
-  if (reached_start_) {
-    RCLCPP_ERROR(
-      this->get_logger(),
-      "The repeat count can't be changed if motion has already started",
       param.get_name().c_str());
     return false;
   }
