@@ -24,7 +24,7 @@ namespace filter_points
 {
 
 MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & options)
-: rclcpp::Node(node_name, options), storage_options_({"replay", "sqlite3"})
+: rclcpp::Node(node_name, options)
 {
   marker_listener_ = this->create_subscription<
     visualization_msgs::msg::MarkerArray>(

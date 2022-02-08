@@ -80,7 +80,9 @@ private:
     std::vector<double> & joint_state,
     const geometry_msgs::msg::Point & handtip_rel_pos);
 
-  const rosbag2_cpp::StorageOptions storage_options_;
+  const rosbag2_cpp::StorageOptions storage_options_ = rosbag2_cpp::StorageOptions(
+    {"replay",
+      "sqlite3"});
 
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr manage_processing_sub_;
