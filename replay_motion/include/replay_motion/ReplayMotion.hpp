@@ -30,10 +30,10 @@
 
 namespace replay_motion
 {
-std::vector<double> lower_limits_rad_ = std::vector<double>(
+const std::vector<double> lower_limits_rad_ = std::vector<double>(
   {-2.67, -1.88,
     -2.67, -1.88, -2.67, -1.88, -2.74});
-std::vector<double> upper_limits_rad_ = std::vector<double>(
+const std::vector<double> upper_limits_rad_ = std::vector<double>(
   {2.67, 1.88,
     2.67, 1.88, 2.67, 1.88, 2.74});
 
@@ -69,7 +69,7 @@ private:
   bool processCSV(std::vector<double> & joint_angles, bool last_only = false);
   bool onRepeatCountChangeRequest(const rclcpp::Parameter & param);
   bool setControllerRate(const double & rate) const;
-  bool checkJointLimits(const std::vector<double> & angles);
+  bool checkJointLimits(const std::vector<double> & angles) const;
   rcl_interfaces::msg::SetParametersResult onParamChange(
     const std::vector<rclcpp::Parameter> & parameters);
 

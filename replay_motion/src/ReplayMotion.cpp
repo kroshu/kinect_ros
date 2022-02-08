@@ -459,7 +459,7 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
   return true;
 }
 
-bool ReplayMotion::checkJointLimits(const std::vector<double> & angles)
+bool ReplayMotion::checkJointLimits(const std::vector<double> & angles) const
 {
   for (int i = 0; i < 7; i++) {
     if (angles[i] < lower_limits_rad_[i] || angles[i] > upper_limits_rad_[i]) {
