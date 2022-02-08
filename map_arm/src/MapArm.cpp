@@ -98,7 +98,7 @@ MapArm::~MapArm()
   std::string old_path = storage_options_.uri + "/" + storage_options_.uri + "_0.db3";
   std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
     ".db3";
-  // rename returns 0 is successful
+  // rename returns 0 if successful
   if (rename(
       old_path.c_str(),
       new_path.c_str()))

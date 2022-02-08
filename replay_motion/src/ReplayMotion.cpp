@@ -117,7 +117,7 @@ ReplayMotion::ReplayMotion(
 
   // rates parameter is valid only after starting actual motion
   // using default until then
-  auto duration_us = static_cast<int>(ReplayMotion::default_period_us_);
+  int duration_us = ReplayMotion::default_period_us_;
   timer_ = this->create_wall_timer(
     std::chrono::microseconds(duration_us),
     [this]() {
@@ -365,11 +365,10 @@ bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
         this->timerCallback();
       });
   }
-
   return true;
 }
 
-bool ReplayMotion::setControllerRate(const double & rate)
+bool ReplayMotion::setControllerRate(const double & rate) const
 {
   auto set_double_request = std::make_shared<
     kuka_sunrise_interfaces::srv::SetDouble::Request>();

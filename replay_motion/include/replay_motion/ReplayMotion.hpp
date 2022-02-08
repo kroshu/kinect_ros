@@ -61,7 +61,7 @@ private:
   bool onDelaysChangeRequest(const rclcpp::Parameter & param);
   bool processCSV(std::vector<double> & joint_angles, bool last_only = false);
   bool onRepeatCountChangeRequest(const rclcpp::Parameter & param);
-  bool setControllerRate(const double & rate);
+  bool setControllerRate(const double & rate) const;
   bool checkJointLimits(const std::vector<double> & angles);
   rcl_interfaces::msg::SetParametersResult onParamChange(
     const std::vector<rclcpp::Parameter> & parameters);
