@@ -1,0 +1,20 @@
+# type can be simple, weighted, symmetric or filter
+# Config supports one default setting for all files with different options for first and last in sequence
+# To get fully custom settings for all files, the python script must be modified and the script called multiple times
+#   with different yaml configurations
+moving_average:
+  default:
+    type: "simple"
+    window_size: 5
+    keep_beginning: false
+    keep_end: false
+  first:
+    type: "filter"
+    window_size: 5
+    keep_beginning: true
+    keep_end: false
+  last:
+    type: "simple"
+    window_size: 5
+    keep_beginning: false
+    keep_end: true
