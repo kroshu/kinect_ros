@@ -5,16 +5,17 @@
 moving_average:
   default:
     type: "simple"
-    window_size: 5
-    keep_beginning: false
-    keep_end: false
+    window_size: [2, 2, 2, 2, 4, 4, 1]
+    keep_first: false
+    keep_last: false
   first:
-    type: "filter"
-    window_size: 5
-    keep_beginning: true
-    keep_end: false
+    type: "symmetric"
+    window_size: [2, 2, 2, 2, 4, 4, 1]
+    keep_first: false
+    keep_last: true
   last:
     type: "simple"
-    window_size: 5
-    keep_beginning: false
-    keep_end: true
+    window_size: [2, 2, 2, 2, 4, 4, 1]
+    keep_first: false
+    keep_last: true
+    

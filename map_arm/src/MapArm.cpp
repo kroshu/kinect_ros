@@ -293,7 +293,7 @@ void MapArm::markersReceivedCallback(
 
     if (delta_len > 0.01) {
       prev_rel_pos_ = rel_pos;
-      RCLCPP_INFO(get_logger(), "Reference published");
+      RCLCPP_DEBUG(get_logger(), "Reference published");
       reference_publisher_->publish(reference);
     } else {
       RCLCPP_INFO(
