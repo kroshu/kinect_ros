@@ -1,5 +1,6 @@
 #!/usr/bin/python3.10
 
+from cmath import sqrt
 import os
 from statistics import mean
 import sys
@@ -55,11 +56,41 @@ def calc_weights(x):
     return np.sum(weights*x)
 
 
+def calc_weights2(x):
+    if len(x) < 4:
+        # weights are assigned evenly, like SMA, because window is too small
+        weights = np.full(1, 1/len(x))
+        # TODO: adjust limits
+    elif abs(x.iloc[-1]-x.iloc[0]) > 0.1 * sqrt(len(x)) and abs(x.iloc[-1]- x.mean()) > 0.05 * sqrt(len(x)):
+        print(x)
+        weights = [1 / (len(x) + 2)] * (len(x) - 3)
+        weights.extend([1.5 / (len(x) + 2), 1.6 / (len(x) + 2), 1.9 / (len(x) + 2)])
+    else:
+        weights = np.full(1, 1/len(x))
+    return np.sum(weights*x)
+
+
 def WMA(data, window, periods):
     moving_avg = pd.DataFrame([])
     for i in range(len(data.columns)):
         moving_avg[i] = data[i].rolling(window[i],
-                                        min_periods=periods[i]).apply(lambda x: calc_weights(x))
+                                        min_periods=periods[i]).apply(lambda x: calc_weights2(x))
+    return moving_avg
+
+
+def SWMA(data, window, periods):
+    moving_avg = pd.DataFrame([])
+    for i in range(len(data.columns)):
+        if window[i] > 3:
+            weights = [1 / (window[i] + 2)] * (window[i] - 3)
+            weights.extend([1.5 / (window[i] + 2), 1.6 / (window[i] + 2), 1.9 / (window[i] + 2)])
+        elif window[i] > 1:
+            weights = [1 / (window[i] + 1)] * (window[i] - 1)
+            weights.extend([2 / (window[i] + 1)])
+        else:
+            weights=[1]
+        moving_avg[i] = data[i].rolling(window[i],
+                                        min_periods=periods[i]).apply(lambda x: np.sum(weights*x))
     return moving_avg
 
 def check_monotony(x, mon_count):
@@ -87,7 +118,7 @@ def WMA2(data, window, periods, mon_count=4):
         if window[j] < mon_count:
             simple_MA = data[j].rolling(window[j], min_periods=periods[j]).mean()
             simple_MA.dropna(inplace=True)
-            moving_avg[j] = simple_MA 
+            moving_avg[j] = simple_MA.reset_index(drop=True)
             continue
         weighted_sum = 0                
         while i < len(data):
@@ -125,7 +156,7 @@ def WMA2(data, window, periods, mon_count=4):
             moving_avg_tmp = np.append(moving_avg_tmp,[weighted_sum])
             i += 1
         print(moving_avg_tmp)
-        moving_avg[j]=pd.DataFrame(moving_avg_tmp, columns=['aa']) # TODO: first value is lost!!
+        moving_avg[j]=pd.DataFrame(moving_avg_tmp)
         print(moving_avg[j])
     return moving_avg
 
