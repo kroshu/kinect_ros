@@ -1,22 +1,25 @@
 #!/usr/bin/python3
 
+"""
+Manages post-processing of movements according to the file numbers specified.
+
+    [param_name]_files: int array of files on which to run specific script
+"""
+
 import os
 from pathlib import Path
 import sys
 
 
-# Parameters:
-#   - [param_name]_files: int array of files on which to run specific script
-
 moving_avg_files = [1]
 
-ws_dir = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
-csv_dir = os.path.join(ws_dir, 'replay', 'data', '')
+WS_DIR = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
+CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
 
 
 file_count = 0
-print(csv_dir + 'motion' + str(file_count+1)+'.csv')
-while os.path.isfile(csv_dir+'motion' + str(file_count+1) + '.csv'):
+print(CSV_DIR + 'motion' + str(file_count+1)+'.csv')
+while os.path.isfile(CSV_DIR+'motion' + str(file_count+1) + '.csv'):
     file_count += 1
 
 print(file_count)
@@ -35,10 +38,10 @@ if moving_avg_files[-1] > file_count:
     sys.exit()
 
 
-src_dir = os.path.dirname(os.path.realpath(__file__))
+SRC_DIR = os.path.dirname(os.path.realpath(__file__))
 moving_avg_params = ''
-for i in range(0, len(moving_avg_files)):
-    moving_avg_params += ' ' + str(moving_avg_files[i])
+for f in moving_avg_files:
+    moving_avg_params += ' ' + str(f)
 
 
-os.system(src_dir + '/moving_avg.py' + moving_avg_params)
+os.system(SRC_DIR + '/moving_avg.py' + moving_avg_params)

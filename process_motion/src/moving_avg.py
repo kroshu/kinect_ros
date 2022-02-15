@@ -1,23 +1,29 @@
 #!/usr/bin/python3.10
 
-from cmath import sqrt
+"""
+Applies a smoothing method on the recorded movement of the robot based on the configuration.
+
+    Configuration file: config/moving_average.yaml
+"""
+
 import os
-from statistics import mean
 import sys
+from cmath import sqrt
+from statistics import mean
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import scipy.signal as sg
-from pathlib import Path
 import yaml
 
-joint_count = 7
-allowed_keys = ['type', 'window_size', 'keep_first', 'keep_last', 'pad']
-
-# Turns a dictionary into a class
+JOINT_COUNT = 7
+ALLOWED_KEYS = ['type', 'window_size', 'keep_first', 'keep_last', 'pad']
 
 
-class Dict2Class(object):
-
+class Dict2Class:
+    """
+    Converts the yaml dictionary to an object with the required member variables
+    """
     def __init__(self, my_dict):
         self.type = 'simple'
         self.window_size = [2, 2, 2, 2, 5, 5, 1]
@@ -25,19 +31,19 @@ class Dict2Class(object):
         self.keep_end = False
         self.pad = False
         for key in my_dict:
-            if key in allowed_keys:
+            if key in ALLOWED_KEYS:
                 setattr(self, key, my_dict[key])
             else:
                 print(f'Invalid key found in yaml: {key}')
-        if len(self.window_size) != joint_count:
+        if len(self.window_size) != JOINT_COUNT:
             print('Invalid length for window_size, terminating')
             sys.exit()
 
 
-window_data = []
-
-
-def MA(data, window, periods):
+def mov_avg(data, window, periods):
+    """
+    Implements a simple moving average
+    """
     moving_avg = pd.DataFrame([])
     for i in range(len(data.columns)):
         moving_avg_tmp = data[i].rolling(window[i], min_periods=periods[i]).mean()
@@ -46,46 +52,61 @@ def MA(data, window, periods):
     return moving_avg
 
 
-def calc_weights(x):
-    if len(x) < 4:
+def calc_weights(w_data):
+    """
+    Calculate weights for WMA
+    Latest value has a bigger weight, if the end of the window is monotonous
+    """
+    if len(w_data) < 4:
         # weights are assigned evenly, like SMA, because window is too small
-        weights = np.full(1, 1/len(x))
-    elif ((x.iloc[-1] - x.iloc[-2]) * (x.iloc[-2] - x.iloc[-3]) > 0 and
-          (x.iloc[-3] - x.iloc[-4]) * (x.iloc[-2] - x.iloc[-3]) > 0):
-        weights = [1 / (len(x) + 2)] * (len(x) - 3)
-        weights.extend([1.5 / (len(x) + 2), 1.6 / (len(x) + 2), 1.9 / (len(x) + 2)])
+        weights = np.full(1, 1/len(w_data))
+    elif ((w_data.iloc[-1] - w_data.iloc[-2]) * (w_data.iloc[-2] - w_data.iloc[-3]) > 0 and
+          (w_data.iloc[-3] - w_data.iloc[-4]) * (w_data.iloc[-2] - w_data.iloc[-3]) > 0):
+        weights = [1 / (len(w_data) + 2)] * (len(w_data) - 3)
+        weights.extend([1.5 / (len(w_data) + 2), 1.6 / (len(w_data) + 2), 1.9 / (len(w_data) + 2)])
     else:
-        weights = np.full(1, 1/len(x))
-    return np.sum(weights*x)
+        weights = np.full(1, 1/len(w_data))
+    return np.sum(weights * w_data)
 
 
-def calc_weights2(x):
-    if len(x) < 4:
+def calc_weights2(w_data):
+    """
+    Calculate weights for WMA
+    Latest value has a bigger weight, if the end of the window is significantly different
+    from the average
+    """
+    if len(w_data) < 4:
         # weights are assigned evenly, like SMA, because window is too small
-        weights = np.full(1, 1/len(x))
+        weights = np.full(1, 1/len(w_data))
         # TODO: adjust limits
-    elif (abs(x.iloc[-1] - x.iloc[0]) > 0.1 * sqrt(len(x)) and
-          abs(x.iloc[-1] - x.mean()) > 0.05 * sqrt(len(x))):
-        print(x)
-        weights = [1 / (len(x) + 2)] * (len(x) - 3)
-        weights.extend([1.5 / (len(x) + 2), 1.6 / (len(x) + 2), 1.9 / (len(x) + 2)])
+    elif (abs(w_data.iloc[-1] - w_data.mean()) > 0.05 * sqrt(len(w_data))):
+        print(w_data)
+        weights = [1 / (len(w_data) + 2)] * (len(w_data) - 3)
+        weights.extend([1.5 / (len(w_data) + 2), 1.6 / (len(w_data) + 2), 1.9 / (len(w_data) + 2)])
     else:
-        weights = np.full(1, 1/len(x))
-    return np.sum(weights*x)
+        weights = np.full(1, 1/len(w_data))
+    return np.sum(weights * w_data)
 
 
-def WMA(data, window, periods):
+def w_moving_avg(data, window, periods):
+    """
+    Implements weighted moving average with not constant weights
+    """
     moving_avg = pd.DataFrame([])
     for i in range(len(data.columns)):
         moving_avg_tmp = data[i].rolling(window[i],
-                                         min_periods=periods[i]).apply(lambda x: calc_weights2(x))
+                                         min_periods=periods[i]).apply(calc_weights2)
         moving_avg = pd.concat([moving_avg, moving_avg_tmp.dropna().reset_index(drop=True)],
                                axis=1)
     return moving_avg
 
 
-def SWMA(data, window, periods):
+def cw_moving_avg(data, window, periods):
+    """
+    Implements weighted moving average with constant weights
+    """
     moving_avg = pd.DataFrame([])
+    weights = [1]
     for i in range(len(data.columns)):
         if window[i] > 3:
             weights = [1 / (window[i] + 2)] * (window[i] - 3)
@@ -93,8 +114,6 @@ def SWMA(data, window, periods):
         elif window[i] > 1:
             weights = [1 / (window[i] + 1)] * (window[i] - 1)
             weights.extend([2 / (window[i] + 1)])
-        else:
-            weights = [1]
         moving_avg_tmp = data[i].rolling(window[i],
                                          min_periods=periods[i]).apply(lambda x: np.sum(weights*x))
         moving_avg = pd.concat([moving_avg, moving_avg_tmp.dropna().reset_index(drop=True)],
@@ -102,61 +121,68 @@ def SWMA(data, window, periods):
     return moving_avg
 
 
-def check_monotony(x, mon_count):
-    if (mon_count < 3):
+def check_monotony(w_data, mon_count):
+    """
+    Checks whether the end of a window is monoton
+    """
+    if mon_count < 3:
         print("Monotony window too small")
         return False
-    if (mon_count > len(x)):
+    if mon_count > len(w_data):
         print("Monotony window bigger than observed")
         return False
     i = 0
     while i < mon_count - 2:
-        if ((x.iloc[-(i + 1)] - x.iloc[-(i + 2)]) * (x.iloc[-(i + 2)] - x.iloc[-(i + 3)]) < 0):
+        if ((w_data.iloc[-(i + 1)] - w_data.iloc[-(i + 2)])
+           * (w_data.iloc[-(i + 2)] - w_data.iloc[-(i + 3)]) < 0):
             return False
         i += 1
     return True
 
 
-def WMA2(data, window, periods, mon_count=4):
+def w_moving_avg_2(data, window, periods, mon_count=4):
+    """
+    Implements weighted moving average with not constant weights
+    The effect of the past is not completely neglected
+    """
     moving_avg = pd.DataFrame([])
-    global window_data
-    for j in range(len(data.columns)):
+    for i in range(len(data.columns)):
         moving_avg_tmp = []
         window_data = []
-        i = 0
-        if window[j] < mon_count:
-            simple_MA = data[j].rolling(window[j], min_periods=periods[j]).mean()
-            simple_MA.dropna(inplace=True)
-            moving_avg = pd.concat([moving_avg, simple_MA.reset_index(drop=True)], axis=1)
+        k = 0
+        if window[i] < mon_count:
+            simple_ma = data[i].rolling(window[i], min_periods=periods[i]).mean()
+            simple_ma.dropna(inplace=True)
+            moving_avg = pd.concat([moving_avg, simple_ma.reset_index(drop=True)], axis=1)
             continue
         weighted_sum = 0
-        while i < len(data):
+        while k < len(data):
             prev_weighted_sum = weighted_sum
             if len(window_data) != 0:
                 old_data = window_data.iloc[0]
             else:
                 old_data = 0
-            if i + 1 < window[j]:
-                if periods[j] == window[j]:
-                    i += 1
+            if k + 1 < window[i]:
+                if periods[i] == window[i]:
+                    k += 1
                     continue
-                window_data = data[j][0:i + 1]
+                window_data = data[i][0:k + 1]
                 # in this case no data is outdated, but a multiplication with (w - 1) / w is needed
                 #  -> sum / w is substracted
                 old_data = weighted_sum / len(window_data)
             else:
-                window_data = data[j][i - window[j] + 1:i + 1]
-            w = len(window_data)
-            if i == 0:
+                window_data = data[i][k - window[i] + 1:k + 1]
+            w_len = len(window_data)
+            if k == 0:
                 weighted_sum = mean(window_data)
-            elif (i + 1) == window[j] and window[j] == periods[j]:
+            elif (k + 1) == window[i] and window[i] == periods[i]:
                 weighted_sum = mean(window_data)
             elif check_monotony(window_data, mon_count):
-                weighted_sum = ((weighted_sum - old_data / w) * (w - 2) / (w - 1)
-                                + 2 * window_data.iloc[-1] / w)
+                weighted_sum = ((weighted_sum - old_data / w_len) * (w_len - 2) / (w_len - 1)
+                                + 2 * window_data.iloc[-1] / w_len)
                 # weighted_sum = weighted_sum / w * (w - 3) + 3 * window_data.iloc[-1] / w
             else:
-                weighted_sum = weighted_sum - old_data / w + window_data.iloc[-1] / w
+                weighted_sum = weighted_sum - old_data / w_len + window_data.iloc[-1] / w_len
                 # weighted_sum = weighted_sum / w * (w - 1) + window_data.iloc[-1] / w
             if weighted_sum > max(window_data):
                 weighted_sum = np.mean([max(window_data), prev_weighted_sum])
@@ -164,7 +190,7 @@ def WMA2(data, window, periods, mon_count=4):
                 weighted_sum = np.mean([min(window_data), prev_weighted_sum])
 
             moving_avg_tmp = np.append(moving_avg_tmp, [weighted_sum])
-            i += 1
+            k += 1
         moving_avg = pd.concat([moving_avg,
                                pd.DataFrame(moving_avg_tmp).dropna().reset_index(drop=True)],
                                axis=1, ignore_index=True)
@@ -172,6 +198,9 @@ def WMA2(data, window, periods, mon_count=4):
 
 
 def symmetric(data, window, periods):
+    """
+    Implements simple, symmetric moving average
+    """
     moving_avg = pd.DataFrame([])
     for i in range(len(data.columns)):
         moving_avg_tmp = data[i].rolling(window[i], center=True, min_periods=periods[i]).mean()
@@ -180,7 +209,10 @@ def symmetric(data, window, periods):
     return moving_avg
 
 
-def filter(data, window):
+def filter_butter(data, window):
+    """
+    Implements low-pass Butterworth filter
+    """
     moving_avg = pd.DataFrame([])
     for i in range(len(data.columns)):
         cutoff = 1 / window[i]
@@ -188,8 +220,8 @@ def filter(data, window):
             cutoff = 0.999
         # by default sampling freq = Nyquist freq
         # cutoff specifies the ratio of cutoff and Nyquist (=sampling) frequencies
-        b, a = sg.butter(4, cutoff)
-        moving_avg_tmp = pd.DataFrame(sg.filtfilt(b, a, data[i], axis=0))
+        num, den = sg.butter(4, cutoff)
+        moving_avg_tmp = pd.DataFrame(sg.filtfilt(num, den, data[i], axis=0))
         moving_avg = pd.concat([moving_avg, moving_avg_tmp.dropna().reset_index(drop=True)],
                                axis=1, ignore_index=True)
         # TODO: try different padding and gust method
@@ -197,17 +229,20 @@ def filter(data, window):
 
 
 def smooth_graph(data, config):
+    """
+    Chooses the mode of processing based on the config file
+    """
     match config.type:
         case 'simple':
             if config.keep_first:
-                result = MA(data, config.window_size, [1] * joint_count)
+                result = mov_avg(data, config.window_size, [1] * JOINT_COUNT)
             else:
-                result = MA(data, config.window_size, config.window_size)
+                result = mov_avg(data, config.window_size, config.window_size)
             if config.keep_last:
                 result.iloc[-1] = data.iloc[-1]
 
         case 'filter':
-            result = filter(data, config.window_size)
+            result = filter_butter(data, config.window_size)
             # TODO: keep_first, keep_last
         case 'symmetric':
             result = symmetric(data, config.window_size, config.window_size)
@@ -217,9 +252,9 @@ def smooth_graph(data, config):
                 result.iloc[0] = data.iloc[0]
         case 'weighted':
             if config.keep_first:
-                result = WMA2(data, config.window_size, [1] * joint_count)
+                result = w_moving_avg_2(data, config.window_size, [1] * JOINT_COUNT)
             else:
-                result = WMA2(data, config.window_size, config.window_size)
+                result = w_moving_avg_2(data, config.window_size, config.window_size)
             if config.keep_last:
                 result.iloc[-1] = data.iloc[-1]
         case _:
@@ -236,15 +271,15 @@ def smooth_graph(data, config):
     return result
 
 
-n = len(sys.argv)
-print('Files to process:', n-1)
+ARG_COUNT = len(sys.argv)
+print('Files to process:', ARG_COUNT-1)
 
-ws_dir = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
-csv_dir = os.path.join(ws_dir, 'replay', 'data', '')
-config_path = os.path.join(str(Path(os.getcwd()).parent.absolute()),
+WS_DIR = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
+CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
+CONFIG_PATH = os.path.join(str(Path(os.getcwd()).parent.absolute()),
                            'config', 'moving_average.yaml')
 
-with open(config_path, 'r') as file:
+with open(CONFIG_PATH, 'r', encoding="utf-8") as file:
     config_dict = yaml.safe_load(file)
 
 default_config = Dict2Class(config_dict['moving_average']['default'])
@@ -258,12 +293,12 @@ else:
     last_config = default_config
 
 
-for i in range(1, n):
-    data_csv = pd.read_csv(csv_dir+'motion'+str(sys.argv[i]) + '.csv',
+for j in range(1, ARG_COUNT):
+    data_csv = pd.read_csv(CSV_DIR+'motion'+str(sys.argv[j]) + '.csv',
                            sep=',', decimal='.', header=None)
-    if i == 1:
+    if j == 1:
         smoothed = smooth_graph(data_csv, first_config)
-    elif i is n - 1:
+    elif j is ARG_COUNT - 1:
         smoothed = smooth_graph(data_csv, last_config)
     else:
         smoothed = smooth_graph(data_csv, default_config)
@@ -273,5 +308,5 @@ for i in range(1, n):
     print(smoothed.iloc[[0, -1]])
     print(data_csv.iloc[[0, -1]])
 
-    smoothed.to_csv(csv_dir+'motion'+str(sys.argv[i])+'_tmp.csv',
+    smoothed.to_csv(CSV_DIR+'motion'+str(sys.argv[j])+'_tmp.csv',
                     sep=',', decimal='.', header=None,  index=False)
