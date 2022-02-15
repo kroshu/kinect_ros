@@ -8,14 +8,17 @@ moving_average:
     window_size: [2, 2, 2, 2, 4, 4, 1]
     keep_first: false
     keep_last: false
+    pad: false
   first:
     type: "symmetric"
     window_size: [2, 2, 2, 2, 4, 4, 1]
     keep_first: false
     keep_last: true
+    pad: true
   last:
     type: "simple"
     window_size: [2, 2, 2, 2, 4, 4, 1]
     keep_first: false
     keep_last: true
+    pad: false
     
