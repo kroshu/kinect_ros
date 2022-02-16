@@ -115,7 +115,7 @@ def cw_moving_avg(data, window, periods):
             weights = [1 / (window[i] + 1)] * (window[i] - 1)
             weights.extend([2 / (window[i] + 1)])
         moving_avg_tmp = data[i].rolling(window[i],
-                                         min_periods=periods[i]).apply(lambda x: np.sum(weights*x))
+                                         min_periods=periods[i]).apply(lambda x: np.mean(x))
         moving_avg = pd.concat([moving_avg, moving_avg_tmp.dropna().reset_index(drop=True)],
                                axis=1)
     return moving_avg
@@ -197,18 +197,6 @@ def w_moving_avg_2(data, window, periods, mon_count=4):
     return moving_avg
 
 
-def symmetric(data, window, periods):
-    """
-    Implements simple, symmetric moving average
-    """
-    moving_avg = pd.DataFrame([])
-    for i in range(len(data.columns)):
-        moving_avg_tmp = data[i].rolling(window[i], center=True, min_periods=periods[i]).mean()
-        moving_avg = pd.concat([moving_avg, moving_avg_tmp.dropna().reset_index(drop=True)],
-                               axis=1)
-    return moving_avg
-
-
 def filter_butter(data, window):
     """
     Implements low-pass Butterworth filter
@@ -244,12 +232,13 @@ def smooth_graph(data, config):
         case 'filter':
             result = filter_butter(data, config.window_size)
             # TODO: keep_first, keep_last
-        case 'symmetric':
-            result = symmetric(data, config.window_size, config.window_size)
+        case 'const_weighted':
+            if config.keep_first:
+                result = w_moving_avg(data, config.window_size, [1] * JOINT_COUNT)
+            else:
+                result = w_moving_avg(data, config.window_size, config.window_size)
             if config.keep_last:
                 result.iloc[-1] = data.iloc[-1]
-            if config.keep_first:
-                result.iloc[0] = data.iloc[0]
         case 'weighted':
             if config.keep_first:
                 result = w_moving_avg_2(data, config.window_size, [1] * JOINT_COUNT)

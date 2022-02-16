@@ -1,4 +1,4 @@
-# type can be simple, weighted, symmetric or filter
+# type can be simple, weighted, const_weighted or filter
 # Config supports one default setting for all files with different options for first and last in sequence
 # To get fully custom settings for all files, the python script must be modified and the script called multiple times
 #   with different yaml configurations
