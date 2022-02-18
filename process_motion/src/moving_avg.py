@@ -157,10 +157,10 @@ def w_moving_avg_2(data, window, periods, mon_count=4):
         weighted_sum = 0
         while k < len(data):
             prev_weighted_sum = weighted_sum
+            old_data = 0
             if len(window_data) != 0:
                 old_data = window_data.iloc[0]
-            else:
-                old_data = 0
+
             if k + 1 < window[i]:
                 if periods[i] == window[i]:
                     k += 1
@@ -172,9 +172,7 @@ def w_moving_avg_2(data, window, periods, mon_count=4):
             else:
                 window_data = data[i][k - window[i] + 1:k + 1]
             w_len = len(window_data)
-            if k == 0:
-                weighted_sum = mean(window_data)
-            elif (k + 1) == window[i] and window[i] == periods[i]:
+            if (k + 1) == window[i] and window[i] == periods[i]:
                 weighted_sum = mean(window_data)
             elif check_monotony(window_data, mon_count):
                 weighted_sum = ((weighted_sum - old_data / w_len) * (w_len - 2) / (w_len - 1)
@@ -218,7 +216,7 @@ def smooth_graph(data, config):
     """
     Chooses the mode of processing based on the config file
     """
-    if config.first:
+    if config.keep_first:
         min_periods = [1] * JOINT_COUNT
     else:
         min_periods = config.window_size
@@ -242,7 +240,9 @@ def smooth_graph(data, config):
             sys.exit()
     if config.keep_last:
         if max(abs(result.iloc[-1]-data.iloc[-1])) > 0.1:
-            print('Difference between end of original and smoothed is big')
+            index = np.argmax(abs(result.iloc[-1]-data.iloc[-1]))
+            print('Difference between end of original and smoothed is big: ')
+            print(result.iloc[-1][index], data.iloc[-1][index])
         result.iloc[-1] = data.iloc[-1]
     if config.pad:
         result.dropna(how='all', inplace=True)
