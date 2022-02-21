@@ -256,7 +256,7 @@ def smooth_graph(data, config):
 
 
 ARG_COUNT = len(sys.argv)
-print('Files to process:', ARG_COUNT-1)
+print('Files to smooth:', ARG_COUNT-1)
 
 WS_DIR = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
 CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
@@ -278,7 +278,7 @@ else:
 
 
 for j in range(1, ARG_COUNT):
-    data_csv = pd.read_csv(CSV_DIR+'motion'+str(sys.argv[j]) + '.csv',
+    data_csv = pd.read_csv(CSV_DIR + f'motion{sys.argv[j]}.csv',
                            sep=',', decimal='.', header=None)
     if j == 1:
         smoothed = smooth_graph(data_csv, first_config)
@@ -290,5 +290,5 @@ for j in range(1, ARG_COUNT):
     print(smoothed.iloc[[0, -1]])
     print(data_csv.iloc[[0, -1]])
 
-    smoothed.to_csv(CSV_DIR+'motion'+str(sys.argv[j])+'_tmp.csv',
+    smoothed.to_csv(CSV_DIR + f'motion{sys.argv[j]}_tmp.csv',
                     sep=',', decimal='.', header=None,  index=False)

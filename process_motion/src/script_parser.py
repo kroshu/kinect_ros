@@ -20,8 +20,7 @@ SRC_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 file_count = 0
-print(CSV_DIR + 'motion' + str(file_count+1)+'.csv')
-while os.path.isfile(CSV_DIR+'motion' + str(file_count+1) + '.csv'):
+while os.path.isfile(CSV_DIR + f'motion{file_count + 1}.csv'):
     file_count += 1
 
 print(f'Found {file_count} files to process')
@@ -47,7 +46,7 @@ if len(moving_avg_files) > 0:
         moving_avg_params += ' ' + str(f)
 
     # run script
-    os.system(SRC_DIR + '/set_endpoint.py' + moving_avg_params)
+    os.system(SRC_DIR + '/moving_avg.py' + moving_avg_params)
 
 
 # Check validity of set_endpoint_files
