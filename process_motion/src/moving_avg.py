@@ -287,8 +287,6 @@ for j in range(1, ARG_COUNT):
     else:
         smoothed = smooth_graph(data_csv, default_config)
 
-    # this removes all lines with NaN values
-    # the different lengthes due to different window sizes are resolved
     print(smoothed.iloc[[0, -1]])
     print(data_csv.iloc[[0, -1]])
 
