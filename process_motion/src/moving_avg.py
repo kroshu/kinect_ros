@@ -258,8 +258,8 @@ def smooth_graph(data, config):
         result.dropna(how='all', inplace=True)
         for i in range(len(result.columns)):
             nan_count = result[i].isna().sum()
-            if nan_count > 0:
-                result[i].fillna(result[i].iloc[- (nan_count + 1)], inplace=True)
+            padding = pd.Series([result[i].iloc[0]] * nan_count)
+            result[i] = pd.concat([padding, result[i]], ignore_index=True)
     else:
         result.dropna(inplace=True)
 
@@ -269,6 +269,8 @@ def smooth_graph(data, config):
             print('Difference between end of original and smoothed is big: ')
             print(result.iloc[-1][index], data.iloc[-1][index])
         result.iloc[-1] = data.iloc[-1]
+        # TODO: maybe do the smoothing in the other direction too and combine the result
+        # this would guarantee, that the end is smoother by keep_last
 
     return result
 
