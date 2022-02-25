@@ -10,7 +10,7 @@ moving_average:
     keep_last: false
     pad: false
   first:
-    type: "symmetric"
+    type: "weighted"
     window_size: [2, 2, 2, 2, 4, 4, 1]
     keep_first: false
     keep_last: true

@@ -114,8 +114,13 @@ def cw_moving_avg(data, window, periods):
         elif window[i] > 1:
             weights = [1 / (window[i] + 1)] * (window[i] - 1)
             weights.extend([2 / (window[i] + 1)])
+        try:
         moving_avg_tmp = data[i].rolling(window[i],
                                          min_periods=periods[i]).apply(lambda x: np.sum(weights*x))
+        except:
+            # if window is smaller (happens by keep_first), weights are assigned evenly
+            moving_avg_tmp = data[i].rolling(window[i],
+                                             min_periods=periods[i]).apply(lambda x: np.mean(x))
         moving_avg = pd.concat([moving_avg, moving_avg_tmp.dropna().reset_index(drop=True)],
                                axis=1)
     return moving_avg
