@@ -80,7 +80,6 @@ def calc_weights2(w_data):
         weights = np.full(1, 1/len(w_data))
         # TODO: adjust limits
     elif (abs(w_data.iloc[-1] - w_data.mean()) > 0.05 * sqrt(len(w_data))):
-        print(w_data)
         weights = [1 / (len(w_data) + 2)] * (len(w_data) - 3)
         weights.extend([1.5 / (len(w_data) + 2), 1.6 / (len(w_data) + 2), 1.9 / (len(w_data) + 2)])
     else:
@@ -115,8 +114,8 @@ def cw_moving_avg(data, window, periods):
             weights = [1 / (window[i] + 1)] * (window[i] - 1)
             weights.extend([2 / (window[i] + 1)])
         try:
-        moving_avg_tmp = data[i].rolling(window[i],
-                                         min_periods=periods[i]).apply(lambda x: np.sum(weights*x))
+            moving_avg_tmp = data[i].rolling(window[i],
+                                             min_periods=periods[i]).apply(lambda x: np.sum(weights*x))
         except:
             # if window is smaller (happens by keep_first), weights are assigned evenly
             moving_avg_tmp = data[i].rolling(window[i],
@@ -163,10 +162,10 @@ def w_moving_avg_2(data, window, periods, mon_count=4):
         weighted_sum = 0
         while k < len(data):
             prev_weighted_sum = weighted_sum
+            old_data = 0
             if len(window_data) != 0:
                 old_data = window_data.iloc[0]
-            else:
-                old_data = 0
+
             if k + 1 < window[i]:
                 if periods[i] == window[i]:
                     k += 1
@@ -178,9 +177,7 @@ def w_moving_avg_2(data, window, periods, mon_count=4):
             else:
                 window_data = data[i][k - window[i] + 1:k + 1]
             w_len = len(window_data)
-            if k == 0:
-                weighted_sum = mean(window_data)
-            elif (k + 1) == window[i] and window[i] == periods[i]:
+            if (k + 1) == window[i] and window[i] == periods[i]:
                 weighted_sum = mean(window_data)
             elif check_monotony(window_data, mon_count):
                 weighted_sum = ((weighted_sum - old_data / w_len) * (w_len - 2) / (w_len - 1)
@@ -202,18 +199,6 @@ def w_moving_avg_2(data, window, periods, mon_count=4):
     return moving_avg
 
 
-def symmetric(data, window, periods):
-    """
-    Implements simple, symmetric moving average
-    """
-    moving_avg = pd.DataFrame([])
-    for i in range(len(data.columns)):
-        moving_avg_tmp = data[i].rolling(window[i], center=True, min_periods=periods[i]).mean()
-        moving_avg = pd.concat([moving_avg, moving_avg_tmp.dropna().reset_index(drop=True)],
-                               axis=1)
-    return moving_avg
-
-
 def filter_butter(data, window):
     """
     Implements low-pass Butterworth filter
@@ -229,7 +214,6 @@ def filter_butter(data, window):
         moving_avg_tmp = pd.DataFrame(sg.filtfilt(num, den, data[i], axis=0))
         moving_avg = pd.concat([moving_avg, moving_avg_tmp.dropna().reset_index(drop=True)],
                                axis=1, ignore_index=True)
-        # TODO: try different padding and gust method
     return moving_avg
 
 
@@ -237,34 +221,34 @@ def smooth_graph(data, config):
     """
     Chooses the mode of processing based on the config file
     """
+    if config.keep_first:
+        min_periods = [1] * JOINT_COUNT
+    else:
+        min_periods = config.window_size
     match config.type:
         case 'simple':
-            if config.keep_first:
-                result = mov_avg(data, config.window_size, [1] * JOINT_COUNT)
-            else:
-                result = mov_avg(data, config.window_size, config.window_size)
-            if config.keep_last:
-                result.iloc[-1] = data.iloc[-1]
+            result = mov_avg(data, config.window_size, min_periods)
+
+        case 'const_weighted':
+            result = w_moving_avg(data, config.window_size, min_periods)
+
+        case 'weighted':
+            result = w_moving_avg_2(data, config.window_size, min_periods)
 
         case 'filter':
             result = filter_butter(data, config.window_size)
-            # TODO: keep_first, keep_last
-        case 'symmetric':
-            result = symmetric(data, config.window_size, config.window_size)
-            if config.keep_last:
-                result.iloc[-1] = data.iloc[-1]
             if config.keep_first:
                 result.iloc[0] = data.iloc[0]
-        case 'weighted':
-            if config.keep_first:
-                result = w_moving_avg_2(data, config.window_size, [1] * JOINT_COUNT)
-            else:
-                result = w_moving_avg_2(data, config.window_size, config.window_size)
-            if config.keep_last:
-                result.iloc[-1] = data.iloc[-1]
+
         case _:
             print('Unknown type, terminating')
             sys.exit()
+    if config.keep_last:
+        if max(abs(result.iloc[-1]-data.iloc[-1])) > 0.1:
+            index = np.argmax(abs(result.iloc[-1]-data.iloc[-1]))
+            print('Difference between end of original and smoothed is big: ')
+            print(result.iloc[-1][index], data.iloc[-1][index])
+        result.iloc[-1] = data.iloc[-1]
     if config.pad:
         result.dropna(how='all', inplace=True)
         for i in range(len(result.columns)):
@@ -277,7 +261,7 @@ def smooth_graph(data, config):
 
 
 ARG_COUNT = len(sys.argv)
-print('Files to process:', ARG_COUNT-1)
+print('Files to smooth:', ARG_COUNT-1)
 
 WS_DIR = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
 CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
@@ -299,7 +283,7 @@ else:
 
 
 for j in range(1, ARG_COUNT):
-    data_csv = pd.read_csv(CSV_DIR+'motion'+str(sys.argv[j]) + '.csv',
+    data_csv = pd.read_csv(CSV_DIR + f'motion{sys.argv[j]}.csv',
                            sep=',', decimal='.', header=None)
     if j == 1:
         smoothed = smooth_graph(data_csv, first_config)
@@ -308,10 +292,8 @@ for j in range(1, ARG_COUNT):
     else:
         smoothed = smooth_graph(data_csv, default_config)
 
-    # this removes all lines with NaN values
-    # the different lengthes due to different window sizes are resolved
     print(smoothed.iloc[[0, -1]])
     print(data_csv.iloc[[0, -1]])
 
-    smoothed.to_csv(CSV_DIR+'motion'+str(sys.argv[j])+'_tmp.csv',
+    smoothed.to_csv(CSV_DIR + f'motion{sys.argv[j]}_tmp.csv',
                     sep=',', decimal='.', header=None,  index=False)
