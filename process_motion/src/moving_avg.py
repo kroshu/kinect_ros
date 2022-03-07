@@ -258,7 +258,7 @@ def smooth_graph(data, config):
         result.dropna(how='all', inplace=True)
         for i in range(len(result.columns)):
             nan_count = result[i].isna().sum()
-            padding = pd.Series([result[i].iloc[0]] * nan_count)
+            padding = pd.Series([result[i].iloc[0]] * nan_count, dtype='float64')
             result[i] = pd.concat([padding, result[i]], ignore_index=True)
     else:
         result.dropna(inplace=True)

@@ -18,7 +18,6 @@ WS_DIR = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
 CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
 SRC_DIR = os.path.dirname(os.path.realpath(__file__))
 
-
 file_count = 0
 while os.path.isfile(CSV_DIR + f'motion{file_count + 1}.csv'):
     file_count += 1
