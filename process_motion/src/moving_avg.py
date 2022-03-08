@@ -278,9 +278,9 @@ def smooth_graph(data, config):
 ARG_COUNT = len(sys.argv)
 print('Files to smooth:', ARG_COUNT-1)
 
-WS_DIR = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
+WS_DIR = str(Path(__file__).parent.parent.parent.parent.parent.absolute())
 CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
-CONFIG_PATH = os.path.join(str(Path(os.getcwd()).parent.absolute()),
+CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
                            'config', 'moving_average.yaml')
 
 with open(CONFIG_PATH, 'r', encoding="utf-8") as file:

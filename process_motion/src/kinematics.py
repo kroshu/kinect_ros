@@ -12,7 +12,7 @@ import sympy as sp
 from pathlib import Path
 import yaml
 
-CONFIG_PATH = os.path.join(str(Path(os.getcwd()).parent.absolute()),
+CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
                            'config', 'LBR_iiwa_DH.yaml')
 
 with open(CONFIG_PATH, 'r', encoding="utf-8") as file:

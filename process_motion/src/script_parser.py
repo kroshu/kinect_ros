@@ -14,7 +14,7 @@ import sys
 moving_avg_files = [1]
 set_endpoint_files = [1]
 
-WS_DIR = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
+WS_DIR = str(Path(__file__).parent.parent.parent.parent.parent.absolute())
 CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
 SRC_DIR = os.path.dirname(os.path.realpath(__file__))
 

@@ -43,12 +43,12 @@ def set_endpoint(data_csv, config, first):
 ARG_COUNT = len(sys.argv)
 print('Files to set endpoints to:', ARG_COUNT-1)
 
-WS_DIR = str(Path(os.getcwd()).parent.parent.parent.parent.absolute())
+WS_DIR = str(Path(__file__).parent.parent.parent.parent.parent.absolute())
 CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
-CONFIG_PATH = os.path.join(str(Path(os.getcwd()).parent.absolute()),
+CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
                            'config', 'set_endpoint_')
 
-CONFIG_FILES = [os.path.join(str(Path(os.getcwd()).parent.absolute()),
+CONFIG_FILES = [os.path.join(str(Path(__file__).parent.parent.absolute()),
                            'config', f'set_endpoint_{sys.argv[i]}.yaml') for i in range(1, ARG_COUNT)]
 
 
