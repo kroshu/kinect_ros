@@ -47,7 +47,7 @@ def denavit_to_matrix(s_a, s_alpha, s_d, s_theta, tool_length=0):
                  [0, 0, 0, 1]])
     return T
 
-def calc_jacobian(dh_params, joint_pos=None, orientation=True, pitch_lock=False):
+def calc_jacobian(dh_params, joint_pos=None, orientation=True):
     """
     Calculates the Jacobian matrix for a robot chain from base to end effector based on
         Denavit-Hartenberg parameters
@@ -68,7 +68,7 @@ def calc_jacobian(dh_params, joint_pos=None, orientation=True, pitch_lock=False)
         yaw = sp.atan2(rot_matrix[1,0], rot_matrix[0,0])
         pitch = sp.atan2(-rot_matrix[2,0], c_p)
         roll = sp.atan2(rot_matrix[2,1], rot_matrix[2,2])
-        if pitch_lock:
+        if abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
             Jw = sp.Matrix([roll - yaw, pitch]).jacobian(q_symbols)
         else:
             Jw = sp.Matrix([roll, pitch, yaw]).jacobian(q_symbols)
@@ -81,18 +81,17 @@ def calc_jacobian(dh_params, joint_pos=None, orientation=True, pitch_lock=False)
         return J
 
     if  orientation and c_p.subs(zip(q_symbols, joint_pos)).evalf() < 1e-6:
-        j_s = joint_pos
         print("Pitch is almost +-90°")
         # in this case, the solution is not straighforward
         # atan2(0, 0) would be nan -> orientation is calculated with a different joint setup
         # only the first (from TCP) joint is modified, that changes pitch angle slightly
         for i in reversed(range(joint_count)):
-            j_s[i] = joint_pos[i] + 0.001
-            if c_p.subs(zip(q_symbols, j_s)).evalf() < 1e-6:
-                j_s[i] = joint_pos[i]
+            joint_pos[i] += 0.001
+            if c_p.subs(zip(q_symbols, joint_pos)).evalf() < 1e-6:
+                joint_pos[i] -= 0.001
             else:
                 break
-        print(j_s)
+        print(joint_pos)
     return J.subs(zip(q_symbols, joint_pos)).evalf()
 
 
@@ -120,7 +119,6 @@ def pseudo_inverse_svd(J):
         S_inv = np.vstack([S_inv, [0 for i in range(U.shape[0])]])
         
     J_inv = np.matmul(np.matmul(V.transpose(), S_inv), U.transpose())
-    
 
     return sp.Matrix(J_inv)
 
@@ -150,20 +148,18 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
 
     # if pitch is around 90°, roll and yaw axis are the same, but point to opposite directions
     # therefore we can set pitch to pitch-yaw and neglect yaw in jacobian
-    # TODO: maybe we should do that only when actual cartesian position is near that point
-    if abs(abs(goal_pos[4])-sp.pi/2) < 0.1:
-        goal_pos[3] = goal_pos[3] - goal_pos[5]
-        goal_pos = goal_pos[:5]
-        pitch_lock = True
 
-
-    j_s = joint_states
-    actual_pos = calc_forw_kin(calc_transform(dh_params), j_s, pitch_lock)
+    goal_pos_tmp = goal_pos
+    actual_pos = calc_forw_kin(calc_transform(dh_params), joint_states)
     sp.pprint(actual_pos.transpose().evalf(3))
+
+    if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
+        goal_pos_tmp = goal_pos[:5]
+        goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
 
     if not orientation:
         rot_tol = float('inf')
-    diff = sp.Matrix([goal_pos]).transpose() - sp.Matrix([actual_pos])
+    diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
     i = 0
     print(f'Cartesian distance: {diff[:3,:].norm()}')
     min_dist = 100
@@ -174,14 +170,12 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         return actual_pos, diff
     while ((diff[:3,:].norm() > pos_tol or diff[3:,:].norm() > rot_tol) and i < max_iter):
         if diff.norm() < min_dist:
-            min_js = j_s
+            min_js = joint_states
             min_diff = diff
         print(diff[:3,:].norm(), diff[3:,:].norm().evalf(), i)
-        # if max(abs(diff)) > 0.1:
-        #     diff /= max(abs(diff)) * 10  # split Cartesian position to a max diff of 0.2
         i += 1
-        J = calc_jacobian(dh_params, j_s, orientation, pitch_lock)
-        J_inv = pseudo_inverse(J)
+        J = calc_jacobian(dh_params, joint_states, orientation)
+        J_inv = pseudo_inverse_svd(J)
         if J_inv == -1:
             J_inv = damped_least_squares(J, 0.01)
         if orientation:
@@ -190,38 +184,38 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
             delta_theta = J_inv * diff[:3, :]
 
         max_change = 0.1
-        # if max(abs(J)) > 10:
-        #     max_change = 1 / max(abs(J))
-        #     print(f'Reduced max angle change to {max_change}')
-        # maximize the joint change per iteration to 0.05 rad
+        # maximize the joint change per iteration to $max_change rad
         if max(abs(delta_theta)) > max_change:
             print(f'Reduced big jump in joint angle: {max(abs(delta_theta.evalf()))}')
             sp.pprint(delta_theta.evalf(4).transpose())
             delta_theta /= max(abs(delta_theta)) / max_change
-        # for j in get_leaps_from_jacobian(J):
-        #     delta_theta[j] = np.sign(delta_theta[j]) * min(abs(delta_theta[j]), 0.0001)
-        #     # delta_theta[i] = 0
+
         sp.pprint(delta_theta.evalf(4).transpose())
-        new_joints = sp.Matrix(j_s) + delta_theta
+        new_joints = sp.Matrix(joint_states) + delta_theta
         sp.pprint(new_joints.transpose().evalf(3))
 
         with open('log.csv', 'a') as file:
             writer = csv.writer(file)
             writer.writerow(new_joints.evalf(5))
 
-        j_s = [item for sublist in new_joints.tolist() for item in sublist]
-        actual_pos = calc_forw_kin(calc_transform(dh_params), j_s, pitch_lock)
+        joint_states = [item for sublist in new_joints.tolist() for item in sublist]
+        actual_pos = calc_forw_kin(calc_transform(dh_params), joint_states)
+        if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
+            goal_pos_tmp = goal_pos[:5]
+            goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
+        else:
+            goal_pos_tmp = goal_pos
         sp.pprint(actual_pos.transpose().evalf(3))
         if orientation:
-            diff = sp.Matrix([goal_pos]).transpose() - sp.Matrix([actual_pos])
+            diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
         else:
-            diff = sp.Matrix([goal_pos[:3]]).transpose() - actual_pos[:3,:]
+            diff = sp.Matrix([goal_pos_tmp[:3]]).transpose() - actual_pos[:3,:]
         sp.pprint(diff.transpose().evalf(3))
     if i == max_iter:
         print("Could not reach target position in given iterations")
         print("Returning closest solution")
         return sp.Matrix([min_js]).evalf(3), min_diff.evalf(3)
-    return sp.Matrix([j_s]).evalf(3), diff.evalf(3)
+    return sp.Matrix([joint_states]).evalf(6), diff.evalf(6)
 
 def calc_transform(dh_params):
     """
@@ -241,12 +235,11 @@ def calc_transform(dh_params):
     return trans_matrix
 
 
-def calc_forw_kin(T, joint_pos, pitch_lock=False):
+def calc_forw_kin(T, joint_pos):
     """
     Calculates cartesian position and orientation from the transormation matrix
         based on given joint positions
     """
-    j_s = joint_pos
     q_symbols = [sp.symbols(f'q{i + 1}') for i in range(joint_count)]
     abs_pos = T[:3, 3]
     R = T[:3, :3]
@@ -256,41 +249,29 @@ def calc_forw_kin(T, joint_pos, pitch_lock=False):
     pitch = sp.atan2(-R[2,0], c_p)
     yaw = sp.atan2(R[1,0], R[0,0])
 
-    if c_p.subs(zip(q_symbols, j_s)).evalf() < 1e-6:
+    if c_p.subs(zip(q_symbols, joint_pos)).evalf() < 1e-6:
         print("Pitch is almost +-90°")
         # in this case, the RPY angles are not straighforward
-        # atan2(0, 0) would be nan
+        #   roll and yaw angles axis are the same in opposite directions
+        #   atan2(0, 0) would be nan
         # orientation is calculated with a slightly different joint setup
         # only the first (from TCP) joint is modified, which changes pitch angle
         for i in reversed(range(joint_count)):
-            j_s[i] = joint_pos[i] + 0.001
-            if c_p.subs(zip(q_symbols, j_s)).evalf() < 1e-6:
-                j_s[i] = joint_pos[i]
+            joint_pos[i] += 0.001
+            if c_p.subs(zip(q_symbols, joint_pos)).evalf() < 1e-6:
+                joint_pos[i] -= 0.001
             else:
                 break
-    if pitch_lock:
-        return sp.Matrix([abs_pos, roll-yaw, pitch]).subs(zip(q_symbols, j_s)).evalf()
+    if abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
+        return sp.Matrix([abs_pos, roll-yaw, pitch]).subs(zip(q_symbols, joint_pos)).evalf()
 
-    return sp.Matrix([abs_pos, roll, pitch, yaw]).subs(zip(q_symbols, j_s)).evalf()
+    return sp.Matrix([abs_pos, roll, pitch, yaw]).subs(zip(q_symbols, joint_pos)).evalf()
 
+JOINT_STATES = [0.208, 0, 0.036, 0.649, 0.809, 0.6756, -0.81]
 
-def get_leaps_from_jacobian(J):
-    leap_joints = []
-    for i in range(J.shape[1]):
-        if max(J.col(i)) > 20 :
-            leap_joints.append(i)
-    return leap_joints
+GOAL_POS = [0, 0, 1.292, 0, 0, 0]
 
 
-
-JOINT_STATES = [-0.208, 1.36, 0.036, 0.649, 0.809, 0.6756, -0.81]
-
-GOAL_POS = [0.9137, -0.1546, 0.5375, 1, 1.57, 0]
-
-
-
-
-result, difference = servo_calcs(DH_PARAMS, GOAL_POS, JOINT_STATES, orientation=True)
-
+result, difference = servo_calcs(DH_PARAMS, GOAL_POS, JOINT_STATES, orientation=True, max_iter=100)
 sp.pprint(result)
 sp.pprint(difference)
