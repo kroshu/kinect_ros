@@ -8,17 +8,17 @@ Kinematics calculations of a robot
 
 import os
 from pathlib import Path
+import csv
 import numpy as np
 import sympy as sp
 import yaml
 
-import csv
 
 CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
                            'config', 'LBR_iiwa_DH.yaml')
 
-with open(CONFIG_PATH, 'r', encoding="utf-8") as file:
-    config_dict = yaml.safe_load(file)
+with open(CONFIG_PATH, 'r', encoding="utf-8") as config_file:
+    config_dict = yaml.safe_load(config_file)
 
 DH_PARAMS = config_dict["DH_params"]
 
@@ -117,7 +117,7 @@ def pseudo_inverse_svd(J):
     while columns_to_add > 0:
         columns_to_add -= 1
         S_inv = np.vstack([S_inv, [0 for i in range(U.shape[0])]])
-        
+
     J_inv = np.matmul(np.matmul(V.transpose(), S_inv), U.transpose())
 
     return sp.Matrix(J_inv)
@@ -142,7 +142,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         - rot_tol: tolerance for orientation
     """
 
-    with open('log.csv', 'a') as file:
+    with open('log.csv', 'a', encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow([f'joint{i + 1}' for i in range(joint_count)])
 
@@ -194,7 +194,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         new_joints = sp.Matrix(joint_states) + delta_theta
         sp.pprint(new_joints.transpose().evalf(3))
 
-        with open('log.csv', 'a') as file:
+        with open('log.csv', 'a', encoding="utf-8") as file:
             writer = csv.writer(file)
             writer.writerow(new_joints.evalf(5))
 
