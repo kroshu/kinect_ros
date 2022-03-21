@@ -13,22 +13,6 @@ import numpy as np
 import sympy as sp
 import yaml
 
-
-CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
-                           'config', 'LBR_iiwa_DH.yaml')
-
-with open(CONFIG_PATH, 'r', encoding="utf-8") as config_file:
-    config_dict = yaml.safe_load(config_file)
-
-DH_PARAMS = config_dict["DH_params"]
-
-joint_count = 0
-
-while f'joint_{joint_count + 1}' in DH_PARAMS.keys():
-    joint_count += 1
-print(f'Number of joints: {joint_count}')
-
-
 def denavit_to_matrix(s_a, s_alpha, s_d, s_theta, tool_length=0):
     """
     Calculates homogenous tranformation matrix from Denavit-Hartenberg parameters
@@ -52,6 +36,10 @@ def calc_jacobian(dh_params, joint_pos=None, orientation=True):
     Calculates the Jacobian matrix for a robot chain from base to end effector based on
         Denavit-Hartenberg parameters
     """
+
+    joint_count = 0
+    while f'joint_{joint_count + 1}' in dh_params.keys():
+        joint_count += 1
 
     # Calculate base to end effector transform
     trans_matrix = calc_transform(dh_params)
@@ -145,6 +133,8 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         - rot_tol: tolerance for orientation
     """
 
+    joint_count = len(joint_states)
+
     with open('log.csv', 'a', encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow([f'joint{i + 1}' for i in range(joint_count)])
@@ -167,6 +157,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
         goal_pos_tmp = goal_pos[:5]
         goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
+        print('Reduced DOF-s')
 
     if not orientation:
         rot_tol = float('inf')
@@ -227,13 +218,20 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     if i == max_iter:
         print("Could not reach target position in given iterations")
         print("Returning closest solution")
-        return sp.Matrix([min_js]).evalf(3), min_diff.evalf(3)
-    return sp.Matrix([joint_states]).evalf(6), diff.evalf(6)
+        if __name__ == "__main__":
+            return sp.Matrix([min_js]).evalf(3), min_diff.evalf(3)
+        return -1, -1        
+    return sp.Matrix([joint_states]).evalf(4), diff.evalf(4)
 
 def calc_transform(dh_params):
     """
     Calculates base to end effector transform
     """
+
+    joint_count = 0
+    while f'joint_{joint_count + 1}' in dh_params.keys():
+        joint_count += 1
+    
     trans_matrix = np.identity(4)
     tool_length = 0
     if 'tool_length' in dh_params.keys():
@@ -253,6 +251,9 @@ def calc_forw_kin(T, joint_pos):
     Calculates cartesian position and orientation from the transormation matrix
         based on given joint positions
     """
+
+    joint_count = len(joint_pos)
+
     q_symbols = [sp.symbols(f'q{i + 1}') for i in range(joint_count)]
     abs_pos = T[:3, 3]
     R = T[:3, :3]
@@ -280,11 +281,18 @@ def calc_forw_kin(T, joint_pos):
 
     return sp.Matrix([abs_pos, roll, pitch, yaw]).subs(zip(q_symbols, joint_pos)).evalf()
 
-JOINT_STATES = [0.208, 0, 0.036, 0.649, 0.809, 0.6756, -0.81]
-
-GOAL_POS = [0, 0, 1.292, 0, 0, 0]
 
 
-result, difference = servo_calcs(DH_PARAMS, GOAL_POS, JOINT_STATES, orientation=True, max_iter=100)
-sp.pprint(result)
-sp.pprint(difference)
+if __name__ == "__main__":
+    CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
+                            'config', 'LBR_iiwa_DH.yaml')
+    with open(CONFIG_PATH, 'r', encoding="utf-8") as config_file:
+        config_dict = yaml.safe_load(config_file)
+    DH_PARAMS = config_dict["DH_params"]
+
+    JOINT_STATES = [1.1, 0.65, 1.23, -0.23, 0.14, -1.1, 0.8]
+    GOAL_POS = [0.952, 0, 0.34, 0, 1.53, 0]
+
+    result, difference = servo_calcs(DH_PARAMS, GOAL_POS, JOINT_STATES, orientation=True, max_iter=100)
+    sp.pprint(result)
+    sp.pprint(difference)
