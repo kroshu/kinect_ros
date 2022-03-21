@@ -147,9 +147,8 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     sp.pprint(actual_pos.transpose().evalf(3))
 
     # Wrap around orientation values (-180° -> 180° transition)
-    # TODO: what should be limit for difference from +-180
     for j in range(3, len(actual_pos)):
-        if abs(abs(actual_pos[j])-sp.pi) < 0.5 and np.sign(actual_pos[j]) != np.sign(goal_pos[j]):
+        if abs(actual_pos[j] - goal_pos[j]) > 3.2:  # create hysteresis
             goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
             print('Wrapped around orientation')
 

@@ -36,8 +36,8 @@ print(f'Number of joints: {joint_count}')
 with open('test.csv', 'w', encoding="utf-8") as file:
     writer = csv.writer(file)
     original = [f'joint{i + 1}' for i in range(joint_count)]
-    modified = [f'joint{i + 1}_mod' for i in range(joint_count)]
-    servoed = [f'joint{i + 1}_servo' for i in range(joint_count)]
+    modified = [f'j{i + 1}_mod' for i in range(joint_count)]
+    servoed = [f'j{i + 1}_servo' for i in range(joint_count)]
     results = ['success', 'avg_orig', 'max_orig', 'avg_mod', 'max_mod']
     writer.writerow(original + modified + servoed + results)
 
@@ -69,7 +69,7 @@ for i in range(500):
     servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, js_orig, orientation=True, max_iter=100)[0]
     if servo_joints == -1:
         success.append(0)
-        distances.append([math.nan] * 4)
+        servo_list = [np.nan] * 7
     else:
         success.append(1)
         servo_list = [item for sublist in servo_joints.tolist() for item in sublist]
