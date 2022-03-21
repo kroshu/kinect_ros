@@ -153,6 +153,14 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     actual_pos = calc_forw_kin(calc_transform(dh_params), joint_states)
     sp.pprint(actual_pos.transpose().evalf(3))
 
+    # Wrap around orientation values (-180° -> 180° transition)
+    # TODO: what should be limit for difference from +-180
+    for j in range(3, 6):
+        if abs(abs(actual_pos[j])-sp.pi) < 0.5 and np.sign(actual_pos[j]) != np.sign(goal_pos[j]):
+            goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
+            print('Wrapped around orientation')
+
+    # Reduce DOF-s if pitch is near 90°
     if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
         goal_pos_tmp = goal_pos[:5]
         goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
@@ -165,7 +173,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     min_dist = 100
     min_js = []
     min_diff = []
-    if diff[:3,:].norm() > 0.55:  # TODO
+    if diff[:3,:].norm() > 0.2:  # TODO
         print("Initial distance too big")
         return actual_pos, diff
     while ((diff[:3,:].norm() > pos_tol or diff[3:,:].norm() > rot_tol) and i < max_iter):
@@ -187,10 +195,8 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         # maximize the joint change per iteration to $max_change rad
         if max(abs(delta_theta)) > max_change:
             print(f'Reduced big jump in joint angle: {max(abs(delta_theta.evalf()))}')
-            sp.pprint(delta_theta.evalf(4).transpose())
             delta_theta /= max(abs(delta_theta)) / max_change
 
-        sp.pprint(delta_theta.evalf(4).transpose())
         new_joints = sp.Matrix(joint_states) + delta_theta
         sp.pprint(new_joints.transpose().evalf(3))
 
@@ -200,6 +206,10 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
 
         joint_states = [item for sublist in new_joints.tolist() for item in sublist]
         actual_pos = calc_forw_kin(calc_transform(dh_params), joint_states)
+        for j in range(3, 6):
+            if abs(abs(actual_pos[j])-sp.pi) < 0.5 and np.sign(actual_pos[j]) != np.sign(goal_pos[j]):
+                goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
+                print('Wrapped around orientation')
         if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
             goal_pos_tmp = goal_pos[:5]
             goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
