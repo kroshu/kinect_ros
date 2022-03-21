@@ -112,7 +112,10 @@ def pseudo_inverse_svd(J):
     Calculates the pseudo inverse for a given Jacobian matrix based on SVD
     """
     U, S, V = np.linalg.svd(np.array(J).astype(np.float64))
-    S_inv = np.linalg.inv(np.diag(S))
+    if np.linalg.det(np.diag(S)) < 1e-8:
+        print("Singularity reached")
+        return -1
+    S_inv = np.linalg.inv(np.diag(S))   # TODO: singular S!
     columns_to_add = V.shape[0] - S.shape[0]
     while columns_to_add > 0:
         columns_to_add -= 1
@@ -155,7 +158,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
 
     # Wrap around orientation values (-180° -> 180° transition)
     # TODO: what should be limit for difference from +-180
-    for j in range(3, 6):
+    for j in range(3, len(actual_pos)):
         if abs(abs(actual_pos[j])-sp.pi) < 0.5 and np.sign(actual_pos[j]) != np.sign(goal_pos[j]):
             goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
             print('Wrapped around orientation')
@@ -206,7 +209,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
 
         joint_states = [item for sublist in new_joints.tolist() for item in sublist]
         actual_pos = calc_forw_kin(calc_transform(dh_params), joint_states)
-        for j in range(3, 6):
+        for j in range(3, len(actual_pos)):
             if abs(abs(actual_pos[j])-sp.pi) < 0.5 and np.sign(actual_pos[j]) != np.sign(goal_pos[j]):
                 goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
                 print('Wrapped around orientation')
