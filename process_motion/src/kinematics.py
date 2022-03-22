@@ -135,35 +135,27 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
 
     joint_count = len(joint_states)
 
-    with open('log.csv', 'a', encoding="utf-8") as file:
+    with open('log.csv', 'w', encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow([f'joint{i + 1}' for i in range(joint_count)])
+    
+    trans_matrix = calc_transform(dh_params)
+    if orientation:
+        goal_pos, goal_pos_tmp, joint_states = adjust_goal_pos(trans_matrix, joint_states, goal_pos, 1)
+    else:
+        goal_pos_tmp = goal_pos
+    actual_pos = calc_forw_kin(trans_matrix, joint_states)
 
-    # if pitch is around 90°, roll and yaw axis are the same, but point to opposite directions
-    # therefore we can set pitch to pitch-yaw and neglect yaw in jacobian
-
-    goal_pos_tmp = goal_pos
-    actual_pos = calc_forw_kin(calc_transform(dh_params), joint_states)
+    sp.pprint(goal_pos_tmp.evalf(3))
     sp.pprint(actual_pos.transpose().evalf(3))
-
-    # Wrap around orientation values (-180° -> 180° transition)
-    for j in range(3, len(actual_pos)):
-        if abs(actual_pos[j] - goal_pos[j]) > 3.2:  # create hysteresis
-            goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
-            print('Wrapped around orientation')
-
-    # Reduce DOF-s if pitch is near 90°
-    if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
-        goal_pos_tmp = goal_pos[:5]
-        goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
-        print('Reduced DOF-s')
 
     if not orientation:
         rot_tol = float('inf')
+
     diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
     i = 0
     print(f'Cartesian distance: {diff[:3,:].norm()}')
-    min_dist = 100
+    min_dist = float('inf')
     min_js = []
     min_diff = []
     if diff[:3,:].norm() > 0.2:  # TODO
@@ -198,17 +190,15 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
             writer.writerow(new_joints.evalf(5))
 
         joint_states = [item for sublist in new_joints.tolist() for item in sublist]
-        actual_pos = calc_forw_kin(calc_transform(dh_params), joint_states)
-        for j in range(3, len(actual_pos)):
-            if abs(abs(actual_pos[j])-sp.pi) < 0.5 and np.sign(actual_pos[j]) != np.sign(goal_pos[j]):
-                goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
-                print('Wrapped around orientation')
-        if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
-            goal_pos_tmp = goal_pos[:5]
-            goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
+
+        if orientation:
+            goal_pos, goal_pos_tmp, _ = adjust_goal_pos(trans_matrix, joint_states, goal_pos)
         else:
             goal_pos_tmp = goal_pos
+
+        actual_pos = calc_forw_kin(trans_matrix, joint_states)
         sp.pprint(actual_pos.transpose().evalf(3))
+
         if orientation:
             diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
         else:
@@ -216,8 +206,8 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         sp.pprint(diff.transpose().evalf(3))
     if i == max_iter:
         print("Could not reach target position in given iterations")
-        print("Returning closest solution")
         if __name__ == "__main__":
+            print("Returning closest solution")
             return sp.Matrix([min_js]).evalf(3), min_diff.evalf(3)
         return -1, -1        
     return sp.Matrix([joint_states]).evalf(4), diff.evalf(4)
@@ -280,7 +270,48 @@ def calc_forw_kin(T, joint_pos):
 
     return sp.Matrix([abs_pos, roll, pitch, yaw]).subs(zip(q_symbols, joint_pos)).evalf()
 
+def adjust_goal_pos(trans_matrix, joint_states, goal_pos, tries=1):
+    """
+    Adjusts the goal position based on the current joint states:
+        1. By transition -180° <-> 180° add +- 360° to orientation permanently
+        2. If pitch is near 90° -> reduce DOF-s temporarily
+            -> two goal_pos variables must be returned (permanent and temporary)
+    Besides, can set the 7th joint of the robot so, that the resulting position is the 'closest'
+        to the goal position
+        - param tries: odd integer, meaning the number of evenly distributed values for joint7 to try out
+            tries = 1 means joint states are not modified
+        - returns the the two adjusted goal positions and the adjusted joint states
+    """
+    min_diff = float('inf')    
+    if tries < 1:
+        tries = 1
+    if tries %2 == 0:
+        tries += 1
+    for i in range(tries):
+        # create tries+1 intervals and iterate through split points
+        if tries > 1:
+            joint_states[6] = (i - (tries - 1) / 2) * 6.28 / (tries + 1)
+        actual_pos = calc_forw_kin(trans_matrix, joint_states)
 
+        # Wrap around orientation values (-180° -> 180° transition)
+        for j in range(3, len(actual_pos)):
+            if abs(actual_pos[j] - goal_pos[j]) > 3.2:  # create hysteresis
+                goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
+                print('Wrapped around orientation, new goal position:')
+                sp.pprint(goal_pos.evalf(3))
+
+        goal_pos_tmp = goal_pos
+
+        # Reduce DOF-s if pitch is near 90°
+        if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
+            goal_pos_tmp = goal_pos[:5]
+            goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
+
+        diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
+        if diff.norm() < min_diff:
+            diff = min_diff
+            closest_js = joint_states
+    return goal_pos, goal_pos_tmp, closest_js
 
 if __name__ == "__main__":
     CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),

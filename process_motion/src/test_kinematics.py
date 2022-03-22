@@ -38,11 +38,10 @@ with open('test.csv', 'w', encoding="utf-8") as file:
     original = [f'joint{i + 1}' for i in range(joint_count)]
     modified = [f'j{i + 1}_mod' for i in range(joint_count)]
     servoed = [f'j{i + 1}_servo' for i in range(joint_count)]
-    results = ['success', 'avg_orig', 'max_orig', 'avg_mod', 'max_mod']
+    results = ['success', 'mod_norm', 'result_norm', 'min_dist']
     writer.writerow(original + modified + servoed + results)
 
 
-# TODO: try with multiple values for joint7
 for i in range(500):
     print(f'{i + 1}. iteration')
     js_orig = []  # this should be reached
@@ -64,21 +63,30 @@ for i in range(500):
             diff.append(round(random.uniform(-0.5, 0.5), 3))
     for j in range(joint_count):
         joint_states.append(js_orig[j] + diff[j])
+
     # joint_states[-1] = 0
-    goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), joint_states).transpose()
-    servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, js_orig, orientation=True, max_iter=100)[0]
+    goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig).transpose()
+    servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True, max_iter=500)[0]
     if servo_joints == -1:
         success.append(0)
         servo_list = [np.nan] * 7
     else:
+        for j in range(joint_count):
+            if abs(servo_joints[j]) > sp.pi:
+                cycles = int(abs(servo_joints[j] / (2 * sp.pi)))
+                print(cycles, servo_joints[j])
+                servo_joints[j] -= np.sign(servo_joints[j]) * 2 * sp.pi.evalf() * (cycles + 1)
+                print(servo_joints[j])
         success.append(1)
         servo_list = [item for sublist in servo_joints.tolist() for item in sublist]
-        diff_orig = np.array(sp.Matrix(js_orig).transpose() - servo_joints).astype(np.float64)
-        diff_mod = np.array(sp.Matrix(joint_states).transpose() - servo_joints).astype(np.float64)
-        distances.append(round(np.mean(abs(diff_orig)), 3))
-        distances.append(round(np.amax(abs(diff_orig)), 3))
-        distances.append(round(np.mean(abs(diff_mod)), 3))
-        distances.append(round(np.amax(abs(diff_mod)), 3))
+        diff_mod = sp.Matrix(joint_states).transpose() - servo_joints
+        # Ignore last joint in evaluation of solution, as that is 'unknown' due to camera precision issue
+        distances.append(round(sp.Matrix(diff[:6]).norm(), 4))
+        distances.append(round(diff_mod[:6].norm(), 4))
+        if sp.Matrix(diff[:6]).norm() > diff_mod[:6].norm():
+            distances.append(1)
+        else:
+            distances.append(0)
     with open('test.csv', 'a', encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow(js_orig + joint_states + servo_list + success + distances)
