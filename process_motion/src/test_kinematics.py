@@ -17,6 +17,7 @@ import yaml
 
 import kinematics as kn
 
+SET_LAST = 0  # should equal the $tries argument of kinematic.adjust_goal function (odd integer or 0)
 
 CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
                            'config', 'LBR_iiwa_DH.yaml')
@@ -64,9 +65,19 @@ for i in range(500):
     for j in range(joint_count):
         joint_states.append(js_orig[j] + diff[j])
 
-    # joint_states[-1] = 0
-    goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig).transpose()
-    servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True, max_iter=500)[0]
+    # js_orig = [2.846, 1.865, -1.154, 0.659, 2.714, -0.116, -2.326]
+    # joint_states = [2.879, 1.786, -1.046, 0.65, 3.085, -0.29, -2.005]
+    # zip_object = zip(joint_states, js_orig)
+    # diff = []
+    # for list1_i, list2_i in zip_object:
+    #     diff.append(list1_i-list2_i)
+
+
+    if SET_LAST:
+        joint_states[-1] = 0
+    goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig)
+    servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True, max_iter=500,
+                                  set_last=SET_LAST)[0]
     if servo_joints == -1:
         success.append(0)
         servo_list = [np.nan] * 7
@@ -76,14 +87,16 @@ for i in range(500):
                 cycles = int(abs(servo_joints[j] / (2 * sp.pi)))
                 print(cycles, servo_joints[j])
                 servo_joints[j] -= np.sign(servo_joints[j]) * 2 * sp.pi.evalf() * (cycles + 1)
-                print(servo_joints[j])
         success.append(1)
         servo_list = [item for sublist in servo_joints.tolist() for item in sublist]
         diff_mod = sp.Matrix(joint_states).transpose() - servo_joints
         # Ignore last joint in evaluation of solution, as that is 'unknown' due to camera precision issue
-        distances.append(round(sp.Matrix(diff[:6]).norm(), 4))
-        distances.append(round(diff_mod[:6].norm(), 4))
-        if sp.Matrix(diff[:6]).norm() > diff_mod[:6].norm():
+        if (SET_LAST):
+            diff = diff[:6]
+            diff_mod = diff_mod[6]
+        distances.append(round(sp.Matrix(diff).norm(), 4))
+        distances.append(round(diff_mod.norm(), 4))
+        if sp.Matrix(diff).norm() > diff_mod.norm():
             distances.append(1)
         else:
             distances.append(0)

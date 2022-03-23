@@ -120,9 +120,9 @@ def damped_least_squares(J, mu):
     J_inv = J.transpose() * (J * J.transpose() + mu * np.eye(sp.shape(J)[0])).inv()
     return J_inv
 
-
+# TODO: if joint limits are exceeded, add a goal function to minimize
 def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=500, pos_tol=1e-5,
-                rot_tol=1e-3):
+                rot_tol=1e-3, set_last = 0):
     """
     Calculates the joint states for a given cartesian position with servoing in cartesian space
         - param goal_pos: target cartesian position with roll-pitch-yaw orientation
@@ -132,7 +132,8 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         - pos_tol: tolerance for cartesian position
         - rot_tol: tolerance for orientation
     """
-
+    goal_pos = sp.Matrix(goal_pos).transpose()
+    start_joints = joint_states
     joint_count = len(joint_states)
 
     with open('log.csv', 'w', encoding="utf-8") as file:
@@ -141,7 +142,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     
     trans_matrix = calc_transform(dh_params)
     if orientation:
-        goal_pos, goal_pos_tmp, joint_states = adjust_goal_pos(trans_matrix, joint_states, goal_pos, 1)
+        goal_pos, goal_pos_tmp, joint_states = adjust_goal_pos(trans_matrix, joint_states, goal_pos, set_last)
     else:
         goal_pos_tmp = goal_pos
     actual_pos = calc_forw_kin(trans_matrix, joint_states)
@@ -176,6 +177,9 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         else:
             delta_theta = J_inv * diff[:3, :]
 
+        minimize_goal = J_inv * J - np.eye(joint_count)
+        goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints)) * 0.2
+        delta_theta += minimize_goal * goal_vector  # TODO: add or substract
         max_change = 0.1
         # maximize the joint change per iteration to $max_change rad
         if max(abs(delta_theta)) > max_change:
@@ -304,8 +308,9 @@ def adjust_goal_pos(trans_matrix, joint_states, goal_pos, tries=1):
 
         # Reduce DOF-s if pitch is near 90°
         if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
-            goal_pos_tmp = goal_pos[:5]
+            goal_pos_tmp = goal_pos[:, :5]
             goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
+            print('Reduced DOF-s')
 
         diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
         if diff.norm() < min_diff:
