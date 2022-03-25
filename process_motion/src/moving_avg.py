@@ -226,34 +226,65 @@ def filter_butter(data, window):
                                axis=1, ignore_index=True)
     return moving_avg
 
+def merge_data(result, reversed_result):
+    half = (int) (result.shape[0] / 2)
+    for i in range(len(result.columns)):
+        # TODO: odd/ eve -> keep length
+        result[i] = pd.concat([result[i].iloc[:half], reversed_result[i].iloc[-half:]],
+                              ignore_index=True)
+    return result
 
 def smooth_graph(data, config):
     """
     Chooses the mode of processing based on the config file
     """
+    keep_both = False
     if config.keep_first:
         min_periods = [1] * JOINT_COUNT
+        if config.keep_last:
+            data_reversed = data[::-1].reset_index(drop=True)
+            keep_both = True
+    elif config.keep_last:
+        min_periods = [1] * JOINT_COUNT
+        data = data[::-1].reset_index(drop=True)
     else:
         min_periods = config.window_size
+    
     match config.type:
         case 'simple':
             result = mov_avg(data, config.window_size, min_periods)
+            if keep_both:
+                reversed_result = mov_avg(data_reversed, config.window_size, min_periods)
 
         case 'const_weighted':
             result = cw_moving_avg(data, config.window_size, min_periods)
+            if keep_both:
+                reversed_result = cw_moving_avg(data_reversed, config.window_size, min_periods)
 
         case 'weighted':
             result = w_moving_avg_2(data, config.window_size, min_periods)
+            if keep_both:
+                reversed_result = w_moving_avg_2(data_reversed, config.window_size, min_periods)
 
         case 'filter':
             result = filter_butter(data, config.window_size)
             if config.keep_first:
                 result.iloc[0] = data.iloc[0]
+                if config.keep_last:
+                    result.iloc[-1] = data.iloc[-1]
+            elif config.keep_last:
+                result.iloc[0] = data.iloc[0]  # data and result is in reversed order
 
         case _:
             print('Unknown type, terminating')
             sys.exit()
-            
+
+    if config.keep_last and not config.keep_first:
+        result = result[::-1].reset_index(drop=True)
+    elif config.keep_last and config.type != 'filter':
+        reversed_result = reversed_result[::-1].reset_index(drop=True)
+        result = merge_data(result, reversed_result)
+
     if config.pad:
         result.dropna(how='all', inplace=True)
         for i in range(len(result.columns)):
@@ -262,15 +293,6 @@ def smooth_graph(data, config):
             result[i] = pd.concat([padding, result[i]], ignore_index=True)
     else:
         result.dropna(inplace=True)
-
-    if config.keep_last:
-        if max(abs(result.iloc[-1]-data.iloc[-1])) > 0.1:
-            index = np.argmax(abs(result.iloc[-1]-data.iloc[-1]))
-            print('Difference between end of original and smoothed is big: ')
-            print(result.iloc[-1][index], data.iloc[-1][index])
-        result.iloc[-1] = data.iloc[-1]
-        # TODO: maybe do the smoothing in the other direction too and combine the result
-        # this would guarantee, that the end is smoother by keep_last
 
     return result
 
