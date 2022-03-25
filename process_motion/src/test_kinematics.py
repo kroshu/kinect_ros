@@ -26,12 +26,26 @@ with open(CONFIG_PATH, 'r', encoding="utf-8") as config_file:
     config_dict = yaml.safe_load(config_file)
 
 DH_PARAMS = config_dict["DH_params"]
+LOWER_LIMITS = [-170, -120, -170, -120, -170, -120, -175]
+UPPER_LIMITS = [170, 120, 170, 120, 170, 120, 175]
 
 joint_count = 0
 
 while f'joint_{joint_count + 1}' in DH_PARAMS.keys():
     joint_count += 1
 print(f'Number of joints: {joint_count}')
+
+
+def check_joint_limits(joint_states):
+    if len(joint_states) != len (LOWER_LIMITS):
+        print('Limits are invalid for this robot')
+        return False
+    for i in range(len(joint_states)):
+        if joint_states[i] < LOWER_LIMITS[i] or joint_states[i] > UPPER_LIMITS[i]:
+            print (f'Limits exceeded by joint {i + 1}')
+            return False
+    return True
+
 
 # Print headers
 with open('test.csv', 'w', encoding="utf-8") as file:
@@ -88,7 +102,11 @@ for i in range(500):
                 print(cycles, servo_joints[j])
                 servo_joints[j] -= np.sign(servo_joints[j]) * 2 * sp.pi.evalf() * (cycles + 1)
         success.append(1)
-        servo_list = [item for sublist in servo_joints.tolist() for item in sublist]
+        servo_list = [round(item, 4) for sublist in servo_joints.tolist() for item in sublist]
+        # if not check_joint_limits(servo_joints):
+        #     servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True, max_iter=500,
+        #                           set_last=SET_LAST, joint_limits=True)[0]
+        #     # TODO: copy checks
         diff_mod = sp.Matrix(joint_states).transpose() - servo_joints
         # Ignore last joint in evaluation of solution, as that is 'unknown' due to camera precision issue
         if (SET_LAST):
@@ -96,10 +114,10 @@ for i in range(500):
             diff_mod = diff_mod[6]
         distances.append(round(sp.Matrix(diff).norm(), 4))
         distances.append(round(diff_mod.norm(), 4))
-        if sp.Matrix(diff).norm() > diff_mod.norm():
-            distances.append(1)
-        else:
+        if sp.Matrix(diff).norm() < diff_mod.norm():
             distances.append(0)
+        else:
+            distances.append(1)
     with open('test.csv', 'a', encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow(js_orig + joint_states + servo_list + success + distances)

@@ -122,7 +122,7 @@ def damped_least_squares(J, mu):
 
 # TODO: if joint limits are exceeded, add a goal function to minimize
 def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=500, pos_tol=1e-5,
-                rot_tol=1e-3, set_last = 0):
+                rot_tol=1e-3, set_last = 0, joint_limits = False):
     """
     Calculates the joint states for a given cartesian position with servoing in cartesian space
         - param goal_pos: target cartesian position with roll-pitch-yaw orientation
@@ -131,6 +131,10 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         - max_iter: maximum number of iterations
         - pos_tol: tolerance for cartesian position
         - rot_tol: tolerance for orientation
+        - set_last: whether the value for the last joint should be set to be closer to goal
+            0 and 1 mean no, other integers equal the number of values to try
+        - joint_limits: whether to try to get away from the joint limits
+
     """
     goal_pos = sp.Matrix(goal_pos).transpose()
     start_joints = joint_states
@@ -177,9 +181,18 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         else:
             delta_theta = J_inv * diff[:3, :]
 
-        minimize_goal = J_inv * J - np.eye(joint_count)
-        goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints)) * 0.2
-        delta_theta += minimize_goal * goal_vector  # TODO: add or substract
+
+        if joint_limits:
+            minimize_goal = J_inv * J - np.eye(joint_count)
+            # TODO: fine tune factor
+            goal_vector = joint_states  # TODO: function to minimize
+            delta_theta += minimize_goal * goal_vector
+        else:
+            minimize_goal = J_inv * J - np.eye(joint_count)
+            # TODO: fine tune factor
+            goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints)) * 1
+            delta_theta += minimize_goal * goal_vector
+
         max_change = 0.1
         # maximize the joint change per iteration to $max_change rad
         if max(abs(delta_theta)) > max_change:
@@ -298,7 +311,7 @@ def adjust_goal_pos(trans_matrix, joint_states, goal_pos, tries=1):
         actual_pos = calc_forw_kin(trans_matrix, joint_states)
 
         # Wrap around orientation values (-180° -> 180° transition)
-        for j in range(3, len(actual_pos)):
+        for j in range(3, min(len(actual_pos), len(goal_pos))):
             if abs(actual_pos[j] - goal_pos[j]) > 3.2:  # create hysteresis
                 goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
                 print('Wrapped around orientation, new goal position:')
