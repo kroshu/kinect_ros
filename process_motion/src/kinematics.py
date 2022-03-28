@@ -6,12 +6,19 @@ Kinematics calculations of a robot
     Denavit-Hartenberg parameters:
 """
 
+import math
 import os
 from pathlib import Path
 import csv
 import numpy as np
 import sympy as sp
 import yaml
+
+LOWER_LIMITS = [-170, -120, -170, -120, -170, -120, -175]
+UPPER_LIMITS = [170, 120, 170, 120, 170, 120, 175]
+
+LOWER_LIMITS_R = [math.radians(deg) for deg in LOWER_LIMITS]
+UPPER_LIMITS_R = [math.radians(deg) for deg in UPPER_LIMITS]
 
 def denavit_to_matrix(s_a, s_alpha, s_d, s_theta, tool_length=0):
     """
@@ -181,12 +188,13 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         else:
             delta_theta = J_inv * diff[:3, :]
 
-
         if joint_limits:
             minimize_goal = J_inv * J - np.eye(joint_count)
-            # TODO: fine tune factor
-            goal_vector = joint_states  # TODO: function to minimize
-            delta_theta += minimize_goal * goal_vector
+            goal_vector = sp.Matrix(joint_states) - (sp.Matrix(LOWER_LIMITS_R) + sp.Matrix(UPPER_LIMITS_R))
+            limit_length = (sp.Matrix(UPPER_LIMITS_R) - sp.Matrix(LOWER_LIMITS_R))
+            for j in range(len(LOWER_LIMITS)):
+                goal_vector[j] /= limit_length[j]
+            delta_theta += minimize_goal * goal_vector   # TODO: factor
         else:
             minimize_goal = J_inv * J - np.eye(joint_count)
             # TODO: fine tune factor
@@ -282,7 +290,7 @@ def calc_forw_kin(T, joint_pos):
                 joint_pos[i] -= 0.001
             else:
                 break
-    if abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
+    if not all_dof and abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
         return sp.Matrix([abs_pos, roll-yaw, pitch]).subs(zip(q_symbols, joint_pos)).evalf()
 
     return sp.Matrix([abs_pos, roll, pitch, yaw]).subs(zip(q_symbols, joint_pos)).evalf()
