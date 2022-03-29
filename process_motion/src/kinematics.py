@@ -80,11 +80,13 @@ def calc_jacobian(dh_params, joint_pos=None, orientation=True):
         # in this case, the solution is not straighforward
         # atan2(0, 0) would be nan -> orientation is calculated with a different joint setup
         # only the first (from TCP) joint is modified, that changes pitch angle slightly
+        j_s = joint_pos.copy()
         for i in reversed(range(joint_count)):
-            joint_pos[i] += 0.001
-            if c_p.subs(zip(q_symbols, joint_pos)).evalf() < 1e-6:
-                joint_pos[i] -= 0.001
+            j_s[i] += 0.001
+            if c_p.subs(zip(q_symbols, j_s)).evalf() < 1e-6:
+                j_s[i] -= 0.001
             else:
+                joint_pos = j_s.copy()
                 break
         print(joint_pos)
     return J.subs(zip(q_symbols, joint_pos)).evalf()
@@ -110,7 +112,7 @@ def pseudo_inverse_svd(J):
     if np.linalg.det(np.diag(S)) < 1e-8:
         print("Singularity reached")
         return -1
-    S_inv = np.linalg.inv(np.diag(S))   # TODO: singular S!
+    S_inv = np.linalg.inv(np.diag(S))
     columns_to_add = V.shape[0] - S.shape[0]
     while columns_to_add > 0:
         columns_to_add -= 1
@@ -153,9 +155,10 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     
     trans_matrix = calc_transform(dh_params)
     if orientation:
-        goal_pos, goal_pos_tmp, joint_states = adjust_goal_pos(trans_matrix, joint_states, goal_pos, set_last)
+        goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos, set_last)
     else:
-        goal_pos_tmp = goal_pos
+        goal_pos_tmp = goal_pos.copy()
+
     actual_pos = calc_forw_kin(trans_matrix, joint_states)
 
     sp.pprint(goal_pos_tmp.evalf(3))
@@ -217,9 +220,9 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         joint_states = [item for sublist in new_joints.tolist() for item in sublist]
 
         if orientation:
-            goal_pos, goal_pos_tmp, _ = adjust_goal_pos(trans_matrix, joint_states, goal_pos)
+            goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos)
         else:
-            goal_pos_tmp = goal_pos
+            goal_pos_tmp = goal_pos.copy()
 
         actual_pos = calc_forw_kin(trans_matrix, joint_states)
         sp.pprint(actual_pos.transpose().evalf(3))
@@ -260,7 +263,7 @@ def calc_transform(dh_params):
     return trans_matrix
 
 
-def calc_forw_kin(T, joint_pos):
+def calc_forw_kin(T, joint_pos, all_dof=False):
     """
     Calculates cartesian position and orientation from the transormation matrix
         based on given joint positions
@@ -284,11 +287,13 @@ def calc_forw_kin(T, joint_pos):
         #   atan2(0, 0) would be nan
         # orientation is calculated with a slightly different joint setup
         # only the first (from TCP) joint is modified, which changes pitch angle
+        j_s = joint_pos.copy()
         for i in reversed(range(joint_count)):
-            joint_pos[i] += 0.001
-            if c_p.subs(zip(q_symbols, joint_pos)).evalf() < 1e-6:
-                joint_pos[i] -= 0.001
+            j_s[i] += 0.001
+            if c_p.subs(zip(q_symbols, j_s)).evalf() < 1e-6:
+                j_s[i] -= 0.001
             else:
+                joint_pos = j_s.copy()
                 break
     if not all_dof and abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
         return sp.Matrix([abs_pos, roll-yaw, pitch]).subs(zip(q_symbols, joint_pos)).evalf()
@@ -307,37 +312,47 @@ def adjust_goal_pos(trans_matrix, joint_states, goal_pos, tries=1):
             tries = 1 means joint states are not modified
         - returns the the two adjusted goal positions and the adjusted joint states
     """
-    min_diff = float('inf')    
+    min_diff = float('inf')
+    js_tmp = joint_states.copy()
+    goal_pos_i = goal_pos.copy()
     if tries < 1:
         tries = 1
     if tries %2 == 0:
         tries += 1
     for i in range(tries):
-        # create tries+1 intervals and iterate through split points
+        # create tries+1 intervals and iterate through split points with last joint
         if tries > 1:
-            joint_states[6] = (i - (tries - 1) / 2) * 6.28 / (tries + 1)
-        actual_pos = calc_forw_kin(trans_matrix, joint_states)
+            js_tmp[6] = np.round((i - (tries - 1) / 2) * 6.28 / (tries + 1), 4)
+        actual_pos = calc_forw_kin(trans_matrix, js_tmp)
 
         # Wrap around orientation values (-180° -> 180° transition)
         for j in range(3, min(len(actual_pos), len(goal_pos))):
-            if abs(actual_pos[j] - goal_pos[j]) > 3.2:  # create hysteresis
-                goal_pos[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
+            if abs(actual_pos[j] - goal_pos_i[j]) > 3.2:  # create hysteresis
+                goal_pos_i[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
                 print('Wrapped around orientation, new goal position:')
-                sp.pprint(goal_pos.evalf(3))
-
-        goal_pos_tmp = goal_pos
+                sp.pprint(goal_pos_i.evalf(3))
 
         # Reduce DOF-s if pitch is near 90°
         if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
-            goal_pos_tmp = goal_pos[:, :5]
-            goal_pos_tmp[3] = goal_pos[3] - goal_pos[5]
+            goal_pos_tmp_i = goal_pos_i[:, :5]
+            goal_pos_tmp_i[3] = goal_pos_i[3] - goal_pos_i[5]
             print('Reduced DOF-s')
+        else:
+            goal_pos_tmp_i = goal_pos_i
 
-        diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
-        if diff.norm() < min_diff:
-            diff = min_diff
-            closest_js = joint_states
-    return goal_pos, goal_pos_tmp, closest_js
+        if tries > 1:
+            diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
+            if diff.norm() < min_diff:
+                min_diff = diff.norm()
+                joint_states[6] = js_tmp[6]  # Modify with reference
+                goal_pos[:, 3:] = goal_pos_i[:, 3:]  # Modify with reference
+                goal_pos_tmp = goal_pos_tmp_i
+        else:
+            goal_pos[:, 3:] = goal_pos_i[:, 3:]  # Modify with reference
+            goal_pos_tmp = goal_pos_tmp_i
+    if tries > 1:
+        print(f'closest js: {joint_states}')
+    return goal_pos_tmp
 
 if __name__ == "__main__":
     CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
