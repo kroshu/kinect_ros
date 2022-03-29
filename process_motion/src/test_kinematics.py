@@ -41,7 +41,7 @@ def check_joint_limits(joint_states):
         print('Limits are invalid for this robot')
         return False
     for i in range(len(joint_states)):
-        if joint_states[i] < LOWER_LIMITS[i] or joint_states[i] > UPPER_LIMITS[i]:
+        if joint_states[i] < math.radians(LOWER_LIMITS[i]) or joint_states[i] > math.radians(UPPER_LIMITS[i]):
             print (f'Limits exceeded by joint {i + 1}')
             return False
     return True
@@ -89,7 +89,7 @@ for i in range(500):
 
     if SET_LAST:
         joint_states[-1] = 0
-    goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig)
+    goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig, all_dof=True)
     servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True, max_iter=500,
                                   set_last=SET_LAST)[0]
     if servo_joints == -1:
@@ -110,8 +110,8 @@ for i in range(500):
         diff_mod = sp.Matrix(joint_states).transpose() - servo_joints
         # Ignore last joint in evaluation of solution, as that is 'unknown' due to camera precision issue
         if (SET_LAST):
-            diff = diff[:6]
-            diff_mod = diff_mod[6]
+            diff = sp.Matrix(diff[:6])
+            diff_mod = sp.Matrix(diff_mod[:6])
         distances.append(round(sp.Matrix(diff).norm(), 4))
         distances.append(round(diff_mod.norm(), 4))
         if sp.Matrix(diff).norm() < diff_mod.norm():
