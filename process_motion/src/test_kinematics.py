@@ -18,7 +18,8 @@ import pandas as pd
 
 import kinematics as kn
 
-SET_LAST = 5  # should equal the $tries argument of kinematic.adjust_goal function (odd integer or 0)
+# should equal the $tries argument of kinematic.adjust_goal function (odd integer or 0)
+SET_LAST = 5
 
 CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
                            'config', 'LBR_iiwa_DH.yaml')
@@ -41,30 +42,35 @@ print(f'Number of joints: {joint_count}')
 
 
 def check_joint_limits(joint_states):
+    """
+    Returns, whether the given joint states are within the limits
+    """
     if len(joint_states) != len (LOWER_LIMITS):
         print('Limits are invalid for this robot')
         return False
-    for i in range(len(joint_states)):
-        if joint_states[i] < math.radians(LOWER_LIMITS[i]) or joint_states[i] > math.radians(UPPER_LIMITS[i]):
-            print (f'Limits exceeded by joint {i + 1}')
+    for j_s in joint_states:
+        if j_s < math.radians(LOWER_LIMITS[i]) or j_s > math.radians(UPPER_LIMITS[i]):
+            print ('Limits exceeded')
             return False
     return True
 
 def process_result(joint_result, success):
+    """
+    Checks for joint values that can be wrapped around
+    """
     if joint_result == -1:
         success.append(0)
-        servo_list = [np.nan] * 7
+        processed_js = [np.nan] * 7
     else:
-        for j in range(joint_count):
-            if abs(joint_result[j]) > sp.pi:
+        for i in range(joint_count):
+            if abs(joint_result[i]) > sp.pi:
                 print('Joint value exceeds limit, but can be made valid')
-                cycles = int(abs(joint_result[j] / (2 * sp.pi)))
-                joint_result[j] -= np.sign(joint_result[j]) * 2 * sp.pi.evalf() * (cycles + 1)
+                cycles = int(abs(joint_result[i] / (2 * sp.pi)))
+                joint_result[i] -= np.sign(joint_result[i]) * 2 * sp.pi.evalf() * (cycles + 1)
         success.append(1)
-        servo_list = [round(item, 4) for sublist in servo_joints.tolist() for item in sublist]
+        processed_js = [round(item, 4) for sublist in servo_joints.tolist() for item in sublist]
 
-    return servo_list
-
+    return processed_js
 
 # Print headers
 with open('test.csv', 'w', encoding="utf-8") as file:
@@ -78,7 +84,7 @@ with open('test.csv', 'w', encoding="utf-8") as file:
 
 i = 0
 data_csv = pd.read_csv(CSV_PATH, sep=',', decimal='.')
-while i < 500:   
+while i < 500:
     success = []
     distances = []
     diff = []
@@ -107,33 +113,35 @@ while i < 500:
             else:
                 diff.append(round(random.uniform(-0.5, 0.5), 3))
         for j in range(joint_count):
-            joint_states.append(js_orig[j] + diff[j])    
+            joint_states.append(js_orig[j] + diff[j])
     i += 1
 
     if SET_LAST:
         joint_states[-1] = 0
     goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig, all_dof=True)
-    servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True, max_iter=500,
+    servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True,
                                   set_last=SET_LAST)[0]
 
     servo_list = process_result(servo_joints, success)
-        
+
     if not check_joint_limits(servo_joints):
         success = [-1]
         print('Exceeded limits, runnning with new configuration')
         with open('test.csv', 'a', encoding="utf-8") as file:
             writer = csv.writer(file)
-            writer.writerow(js_orig + joint_states + servo_list + success)
+            writer.writerow(js_orig + joint_states + servo_list
+                            + success)
         success = []
-        servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True, max_iter=500,
+        servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True,
                                       set_last=SET_LAST, joint_limits=True)[0]
         servo_list = process_result(servo_joints, success)
 
     if servo_joints != -1:
         diff_mod = sp.Matrix(joint_states).transpose() - servo_joints
 
-        # Ignore last joint in evaluation of solution, as that is 'unknown' due to camera precision issue
-        if (SET_LAST):
+        # Ignore last joint in evaluation of solution,
+        #   as that is 'unknown' due to camera precision issue
+        if SET_LAST:
             diff = sp.Matrix(diff[:6])
             diff_mod = sp.Matrix(diff_mod[:6])
         distances.append(round(sp.Matrix(diff).norm(), 4))

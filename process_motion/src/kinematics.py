@@ -150,13 +150,12 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     with open('log.csv', 'w', encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow([f'joint{i + 1}' for i in range(joint_count)])
-    
+
     trans_matrix = calc_transform(dh_params)
     if orientation:
         goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos, set_last)
     else:
         goal_pos_tmp = goal_pos.copy()
-
     actual_pos = calc_forw_kin(trans_matrix, joint_states)
 
     sp.pprint(goal_pos_tmp.evalf(3))
@@ -173,7 +172,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     min_diff = []
     if diff[:3,:].norm() > 0.2:  # TODO
         print("Initial distance too big")
-        return actual_pos, diff
+        return -1, -1
     while ((diff[:3,:].norm() > pos_tol or diff[3:,:].norm() > rot_tol) and i < max_iter):
         if diff.norm() < min_dist:
             min_js = joint_states
@@ -196,17 +195,19 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
             delta_theta /= max(abs(delta_theta)) / max_change
 
         # this matrix projects any vector on the nullspace of J
-        # therefore a gradient descent can be added to the update formula without changing the goal position:
+        # therefore a gradient descent can be added to the update formula
+        #   without changing the goal position:
         # delta_theta -= null_space_proj * grad(function to minimize)
         goal_vector = sp.Matrix([0, 0, 0, 0, 0, 0, 0])
-        null_space_proj = np.eye(joint_count) - J_inv * J 
+        null_space_proj = np.eye(joint_count) - J_inv * J
         if joint_limits:
             for j in range(joint_count):
                 if abs(joint_states[j]) > sp.pi:
                     print('Joint value exceeds limit, wrapping around')
                     joint_states[j] -= np.sign(joint_states[j]) * 2 * sp.pi.evalf()
-            
-            goal_vector = sp.Matrix(joint_states) - (sp.Matrix(LOWER_LIMITS_R) + sp.Matrix(UPPER_LIMITS_R)) # TODO: factor
+            # TODO: factor
+            goal_vector = (sp.Matrix(joint_states) - (sp.Matrix(LOWER_LIMITS_R)
+                           + sp.Matrix(UPPER_LIMITS_R)))
             limit_length = (sp.Matrix(UPPER_LIMITS_R) - sp.Matrix(LOWER_LIMITS_R))
             for j in range(len(LOWER_LIMITS)):
                 goal_vector[j] /= limit_length[j]
@@ -244,7 +245,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         if __name__ == "__main__":
             print("Returning closest solution")
             return sp.Matrix([min_js]).evalf(3), min_diff.evalf(3)
-        return -1, -1        
+        return -1, -1
     return sp.Matrix([joint_states]).evalf(4), diff.evalf(4)
 
 def calc_transform(dh_params):
@@ -255,7 +256,7 @@ def calc_transform(dh_params):
     joint_count = 0
     while f'joint_{joint_count + 1}' in dh_params.keys():
         joint_count += 1
-    
+
     trans_matrix = np.identity(4)
     tool_length = 0
     if 'tool_length' in dh_params.keys():
@@ -315,15 +316,14 @@ def adjust_goal_pos(trans_matrix, joint_states, goal_pos, tries=1):
             -> two goal_pos variables must be returned (permanent and temporary)
     Besides, can set the 7th joint of the robot so, that the resulting position is the 'closest'
         to the goal position
-        - param tries: odd integer, meaning the number of evenly distributed values for joint7 to try out
-            tries = 1 means joint states are not modified
+        - param tries: odd integer, meaning the number of evenly distributed values for joint7
+            to try out, tries = 1 means joint states are not modified
         - returns the the two adjusted goal positions and the adjusted joint states
     """
     min_diff = float('inf')
     js_tmp = joint_states.copy()
     goal_pos_i = goal_pos.copy()
-    if tries < 1:
-        tries = 1
+    tries = max(tries, 1)
     if tries %2 == 0:
         tries += 1
     for i in range(tries):

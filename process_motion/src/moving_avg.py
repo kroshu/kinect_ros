@@ -97,7 +97,7 @@ def calc_weights_const(w_data):
         weights.extend([1.2 / (len(w_data) + 2), 1.3 / (len(w_data) + 2), 2.5 / (len(w_data) + 2)])
     elif len(w_data) > 1:
         weights = [1 / (len(w_data) + 1)] * (len(w_data) - 1)
-        weights.extend([2 / (len(w_data) + 1)])    
+        weights.extend([2 / (len(w_data) + 1)])
     return np.sum(weights * w_data)
 
 
@@ -128,7 +128,7 @@ def cw_moving_avg(data, window, periods):
             weights = [1 / (window[i] + 1)] * (window[i] - 1)
             weights.extend([2 / (window[i] + 1)])
         moving_avg_tmp = data[i].rolling(window[i],
-                                         min_periods=periods[i]).apply(calc_weights_const)            
+                                         min_periods=periods[i]).apply(calc_weights_const)
 
         moving_avg = pd.concat([moving_avg, moving_avg_tmp.dropna().reset_index(drop=True)],
                                axis=1)
@@ -226,20 +226,21 @@ def filter_butter(data, window):
                                axis=1, ignore_index=True)
     return moving_avg
 
-def merge_data(forward_result, reversed_result):
+def merge_data(forw_result, reversed_result):
     result = pd.DataFrame()
-    half = (int) (forward_result.shape[0] / 2)
-    for i in range(len(forward_result.columns)):
-        if forward_result.shape[0] % 2 == 0:
-            result[i] = pd.concat([forward_result[i].iloc[:half], reversed_result[i].iloc[-half:]],
+    half = (int) (forw_result.shape[0] / 2)
+    for i in range(len(forw_result.columns)):
+        if forw_result.shape[0] % 2 == 0:
+            result[i] = pd.concat([forw_result[i].iloc[:half], reversed_result[i].iloc[-half:]],
                               ignore_index=True)
         else:
-            result[i] = pd.concat([forward_result[i].iloc[:half + 1], reversed_result[i].iloc[-half:]],
+            result[i] = pd.concat([forw_result[i].iloc[:half + 1], reversed_result[i].iloc[-half:]],
                               ignore_index=True)
-        if forward_result.shape[0] > 20:
+        if forw_result.shape[0] > 20:
             for j in range(10):
-                result[i].iloc[half - 5 + j] = (forward_result[i].iloc[half - 5 + j] * (1 - (j + 1) / 10) +
-                                                reversed_result[i].iloc[half - 5 + j] * ((j + 1) / 10))
+                index = half - 5 + j
+                result[i].iloc[index] = (forw_result[i].iloc[index] * (1 - (j + 1) / 10) +
+                                         reversed_result[i].iloc[index] * ((j + 1) / 10))
     return result
 
 def smooth_graph(data, config):
@@ -257,7 +258,7 @@ def smooth_graph(data, config):
         data = data[::-1].reset_index(drop=True)
     else:
         min_periods = config.window_size
-    
+
     match config.type:
         case 'simple':
             result = mov_avg(data, config.window_size, min_periods)

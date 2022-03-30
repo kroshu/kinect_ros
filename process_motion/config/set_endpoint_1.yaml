@@ -1,24 +1,18 @@
 # Setting the exact endpoint for a motion
 #   position: Cartesian coordinates
-#   orientation: quaternion
-#   mode: 
-#    - position_all: change all joints to reach position
-#    - position_last: change only joints 5 and 6 to reach position (they are the most error-prone)
-#    - orientation: set exact position and orientation (modify all joint values)
+#   orientation: roll-pitch-yaw
 #   reference_count: how many references to change
 
 set_endpoint:
   first:
     position:
-      x: 0.0
-      y: 0.0
-      z: 0.0
+      x: 0.146
+      y: 0.09
+      z: 1.2
     orientation:
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 0.0
-    mode: "position_last"
+      r: -0.395
+      p: -0.4
+      y: -0.064
     reference_count: 5
   last:
     position:
@@ -26,10 +20,8 @@ set_endpoint:
       y: 0.0
       z: 0.0
     orientation:
-      x: 0.0
+      r: 0.0
+      p: 0.0
       y: 0.0
-      z: 0.0
-      w: 0.0
-    mode: "position_last"
     reference_count: 5
     
