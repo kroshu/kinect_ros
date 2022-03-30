@@ -88,7 +88,6 @@ def calc_jacobian(dh_params, joint_pos=None, orientation=True):
             else:
                 joint_pos = j_s.copy()
                 break
-        print(joint_pos)
     return J.subs(zip(q_symbols, joint_pos)).evalf()
 
 
@@ -129,7 +128,6 @@ def damped_least_squares(J, mu):
     J_inv = J.transpose() * (J * J.transpose() + mu * np.eye(sp.shape(J)[0])).inv()
     return J_inv
 
-# TODO: if joint limits are exceeded, add a goal function to minimize
 def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=500, pos_tol=1e-5,
                 rot_tol=1e-3, set_last = 0, joint_limits = False):
     """
@@ -329,24 +327,26 @@ def adjust_goal_pos(trans_matrix, joint_states, goal_pos, tries=1):
         for j in range(3, min(len(actual_pos), len(goal_pos))):
             if abs(actual_pos[j] - goal_pos_i[j]) > 3.2:  # create hysteresis
                 goal_pos_i[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
-                print('Wrapped around orientation, new goal position:')
-                sp.pprint(goal_pos_i.evalf(3))
+                if tries == 1:
+                    print('Wrapped around orientation, new goal position:')
+                    sp.pprint(goal_pos_i.evalf(3))
 
         # Reduce DOF-s if pitch is near 90°
         if abs(abs(actual_pos[4])-sp.pi/2) < 0.05:
             goal_pos_tmp_i = goal_pos_i[:, :5]
             goal_pos_tmp_i[3] = goal_pos_i[3] - goal_pos_i[5]
-            print('Reduced DOF-s')
+            if tries == 1:
+                print('Reduced DOF-s')
         else:
-            goal_pos_tmp_i = goal_pos_i
+            goal_pos_tmp_i = goal_pos_i.copy()
 
         if tries > 1:
-            diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
+            diff = sp.Matrix([goal_pos_tmp_i]).transpose() - sp.Matrix([actual_pos])
             if diff.norm() < min_diff:
                 min_diff = diff.norm()
                 joint_states[6] = js_tmp[6]  # Modify with reference
                 goal_pos[:, 3:] = goal_pos_i[:, 3:]  # Modify with reference
-                goal_pos_tmp = goal_pos_tmp_i
+                goal_pos_tmp = goal_pos_tmp_i.copy()
         else:
             goal_pos[:, 3:] = goal_pos_i[:, 3:]  # Modify with reference
             goal_pos_tmp = goal_pos_tmp_i
@@ -364,6 +364,6 @@ if __name__ == "__main__":
     JOINT_STATES = [1.1, 0.65, 1.23, -0.23, 0.14, -1.1, 0.8]
     GOAL_POS = [0.952, 0, 0.34, 0, 1.53, 0]
 
-    result, difference = servo_calcs(DH_PARAMS, GOAL_POS, JOINT_STATES, orientation=True, max_iter=100)
+    result, difference = servo_calcs(DH_PARAMS, GOAL_POS, JOINT_STATES, max_iter=100)
     sp.pprint(result)
     sp.pprint(difference)
