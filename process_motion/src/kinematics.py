@@ -189,24 +189,33 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         else:
             delta_theta = J_inv * diff[:3, :]
 
-        if joint_limits:
-            minimize_goal = J_inv * J - np.eye(joint_count)
-            goal_vector = sp.Matrix(joint_states) - (sp.Matrix(LOWER_LIMITS_R) + sp.Matrix(UPPER_LIMITS_R))
-            limit_length = (sp.Matrix(UPPER_LIMITS_R) - sp.Matrix(LOWER_LIMITS_R))
-            for j in range(len(LOWER_LIMITS)):
-                goal_vector[j] /= limit_length[j]
-            delta_theta += minimize_goal * goal_vector   # TODO: factor
-        else:
-            minimize_goal = J_inv * J - np.eye(joint_count)
-            # TODO: fine tune factor
-            goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints)) * 1
-            delta_theta += minimize_goal * goal_vector
-
         max_change = 0.1
         # maximize the joint change per iteration to $max_change rad
         if max(abs(delta_theta)) > max_change:
             print(f'Reduced big jump in joint angle: {max(abs(delta_theta.evalf()))}')
             delta_theta /= max(abs(delta_theta)) / max_change
+
+        # this matrix projects any vector on the nullspace of J
+        # therefore a gradient descent can be added to the update formula without changing the goal position:
+        # delta_theta -= null_space_proj * grad(function to minimize)
+        goal_vector = sp.Matrix([0, 0, 0, 0, 0, 0, 0])
+        null_space_proj = np.eye(joint_count) - J_inv * J 
+        if joint_limits:
+            for j in range(joint_count):
+                if abs(joint_states[j]) > sp.pi:
+                    print('Joint value exceeds limit, wrapping around')
+                    joint_states[j] -= np.sign(joint_states[j]) * 2 * sp.pi.evalf()
+            
+            goal_vector = sp.Matrix(joint_states) - (sp.Matrix(LOWER_LIMITS_R) + sp.Matrix(UPPER_LIMITS_R)) # TODO: factor
+            limit_length = (sp.Matrix(UPPER_LIMITS_R) - sp.Matrix(LOWER_LIMITS_R))
+            for j in range(len(LOWER_LIMITS)):
+                goal_vector[j] /= limit_length[j]
+        else:
+            goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints)) # TODO: factor
+
+        if max(abs(goal_vector)) > max(abs(delta_theta)):
+            goal_vector /= max(abs(goal_vector)) / max(abs(delta_theta))
+        delta_theta -= null_space_proj * goal_vector
 
         new_joints = sp.Matrix(joint_states) + delta_theta
         sp.pprint(new_joints.transpose().evalf(3))
