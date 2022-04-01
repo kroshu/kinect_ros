@@ -34,9 +34,9 @@ class Dict2Class:
             if key in ALLOWED_KEYS:
                 setattr(self, key, my_dict[key])
             else:
-                print(f'Invalid key found in yaml: {key}')
+                print(f'[ERROR] Invalid key found in yaml: {key}')
         if len(self.window_size) != JOINT_COUNT:
-            print('Invalid length for window_size, terminating')
+            print('[ERROR] Invalid length for window_size, terminating')
             sys.exit()
 
 
@@ -140,10 +140,10 @@ def check_monotony(w_data, mon_count):
     Checks whether the end of a window is monoton
     """
     if mon_count < 3:
-        print("Monotony window too small")
+        print('[WARNING] Monotony window too small')
         return False
     if mon_count > len(w_data):
-        print("Monotony window bigger than observed")
+        print('[WARNING] Monotony window bigger than observed')
         return False
     i = 0
     while i < mon_count - 2:
@@ -285,7 +285,7 @@ def smooth_graph(data, config):
                 result.iloc[0] = data.iloc[0]  # data and result is in reversed order
 
         case _:
-            print('Unknown type, terminating')
+            print('[ERROR] Unknown type, terminating')
             sys.exit()
 
     if config.keep_last and not config.keep_first:

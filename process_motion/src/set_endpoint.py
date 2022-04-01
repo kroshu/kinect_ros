@@ -29,7 +29,7 @@ class Dict2Class:
             if key in ALLOWED_KEYS:
                 setattr(self, key, my_dict[key])
             else:
-                print(f'Invalid key found in yaml: {key}')
+                print(f'[ERROR] Invalid key found in yaml: {key}')
 
 def set_endpoint(data_csv, config, first):
     """
@@ -45,11 +45,13 @@ def set_endpoint(data_csv, config, first):
         result = (np.array(kn.servo_calcs(DH_PARAMS, goal_pos, joint_states)[0].transpose())
                   .astype(np.float64))
     except AttributeError:
-        print('Setting endpoint not successful')
+        print('[ERROR] Setting endpoint not successful')
         return data_csv
     result_df = pd.DataFrame(result)[0]
     diff = result_df - joint_states
-    print(diff)
+    if max(abs(diff)) > 0.25:
+        print('[WARNING] There was a big change in one of the joint values')
+        print(diff)
     for i in range (config.reference_count):
         if first:
             data_csv.iloc[i] = (data_csv.iloc[i] + diff * (config.reference_count + 1 - i) /
@@ -76,7 +78,7 @@ DH_PARAMS = config_dict["DH_params"]
 
 for j in range(1, ARG_COUNT):
     if not Path(CONFIG_FILES[j - 1]).is_file():
-        print(f'Config file not found for motion_{sys.argv[j]}, terminating')
+        print(f'[ERROR] Config file not found for motion_{sys.argv[j]}, terminating')
         sys.exit()
     with open(CONFIG_FILES[j - 1], 'r', encoding="utf-8") as file:
         config_dict = yaml.safe_load(file)

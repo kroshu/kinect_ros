@@ -170,8 +170,8 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
     min_dist = float('inf')
     min_js = []
     min_diff = []
-    if diff[:3,:].norm() > 0.2:  # TODO
-        print("Initial distance too big")
+    if diff[:3,:].norm() > 0.5:  # TODO
+        print("[ERROR] Initial distance too big")
         return -1, -1
     while ((diff[:3,:].norm() > pos_tol or diff[3:,:].norm() > rot_tol) and i < max_iter):
         if diff.norm() < min_dist:
@@ -241,9 +241,9 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
             diff = sp.Matrix([goal_pos_tmp[:3]]).transpose() - actual_pos[:3,:]
         sp.pprint(diff.transpose().evalf(3))
     if i == max_iter:
-        print("Could not reach target position in given iterations")
+        print("[ERROR] Could not reach target position in given iterations")
         if __name__ == "__main__":
-            print("Returning closest solution")
+            print("[WARNING] Returning closest solution")
             return sp.Matrix([min_js]).evalf(3), min_diff.evalf(3)
         return -1, -1
     return sp.Matrix([joint_states]).evalf(4), diff.evalf(4)

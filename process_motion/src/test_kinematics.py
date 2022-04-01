@@ -48,9 +48,10 @@ def check_joint_limits(joint_states):
     if len(joint_states) != len (LOWER_LIMITS):
         print('Limits are invalid for this robot')
         return False
-    for j_s in joint_states:
-        if j_s < math.radians(LOWER_LIMITS[i]) or j_s > math.radians(UPPER_LIMITS[i]):
-            print ('Limits exceeded')
+    for i in range(len(joint_states)):
+        if (joint_states[i] < math.radians(LOWER_LIMITS[i]) 
+            or joint_states[i] > math.radians(UPPER_LIMITS[i])):
+            print (f'Limits exceeded by joint {i + 1}')
             return False
     return True
 
@@ -115,15 +116,12 @@ while i < 500:
         for j in range(joint_count):
             joint_states.append(js_orig[j] + diff[j])
     i += 1
-
     if SET_LAST:
         joint_states[-1] = 0
     goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig, all_dof=True)
-    servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True,
-                                  set_last=SET_LAST)[0]
+    servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST)[0]
 
     servo_list = process_result(servo_joints, success)
-
     if servo_joints != -1 and not check_joint_limits(servo_joints):
         success = [-1]
         print('Exceeded limits, runnning with new configuration')
@@ -132,9 +130,13 @@ while i < 500:
             writer.writerow(js_orig + joint_states + servo_list
                             + success)
         success = []
-        servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, orientation=True,
-                                      set_last=SET_LAST, joint_limits=True)[0]
+        servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
+                                      joint_limits=True)[0]
         servo_list = process_result(servo_joints, success)
+        if not check_joint_limits(servo_joints):
+            print('New configuration was also not successful')
+            success = [0]
+            servo_joints = -1
 
     if servo_joints != -1:
         diff_mod = sp.Matrix(joint_states).transpose() - servo_joints
