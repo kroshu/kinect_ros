@@ -34,6 +34,9 @@ DH_PARAMS = config_dict["DH_params"]
 LOWER_LIMITS = [-170, -120, -170, -120, -170, -120, -175]
 UPPER_LIMITS = [170, 120, 170, 120, 170, 120, 175]
 
+LOWER_LIMITS_R = [0.9 * math.radians(deg) for deg in LOWER_LIMITS]
+UPPER_LIMITS_R = [0.9 * math.radians(deg) for deg in UPPER_LIMITS]
+
 joint_count = 0
 
 while f'joint_{joint_count + 1}' in DH_PARAMS.keys():
@@ -49,8 +52,8 @@ def check_joint_limits(joint_states):
         print('Limits are invalid for this robot')
         return False
     for i in range(len(joint_states)):
-        if (joint_states[i] < math.radians(LOWER_LIMITS[i]) 
-            or joint_states[i] > math.radians(UPPER_LIMITS[i])):
+        if (joint_states[i] < LOWER_LIMITS_R[i] 
+            or joint_states[i] > UPPER_LIMITS_R[i]):
             print (f'Limits exceeded by joint {i + 1}')
             return False
     return True
@@ -102,11 +105,7 @@ while i < 500:
         joint_states = []  # this is measured by the camera
 
         for j in range(joint_count):
-            # Specific joint limits for iiwa:
-            if j in [1, 3, 5]:
-                js_orig.append(round(random.uniform(math.radians(-120), math.radians(120)), 3))
-            else:
-                js_orig.append(round(random.uniform(math.radians(-170), math.radians(170)), 3))
+            js_orig.append(round(random.uniform(LOWER_LIMITS_R[j], UPPER_LIMITS_R[j]), 3))
 
             # Slight changes in joints based on experience
             if j in range(4):
@@ -115,6 +114,10 @@ while i < 500:
                 diff.append(round(random.uniform(-0.5, 0.5), 3))
         for j in range(joint_count):
             joint_states.append(js_orig[j] + diff[j])
+            if joint_states[j] > UPPER_LIMITS_R[j]:
+                joint_states[j] = UPPER_LIMITS_R[j]
+            elif joint_states[j] < LOWER_LIMITS_R[j]:
+                joint_states[j] = LOWER_LIMITS_R[j]
     i += 1
     if SET_LAST:
         joint_states[-1] = 0
@@ -131,9 +134,13 @@ while i < 500:
                             + success)
         success = []
         servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
-                                      joint_limits=True)[0]
+                                      joint_limits=1)[0]
+        if servo_joints == -1:
+            print('Enforcing joint limits also failed, retrying with goal vector')
+            servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
+                                          joint_limits=2)[0]
         servo_list = process_result(servo_joints, success)
-        if not check_joint_limits(servo_joints):
+        if servo_joints != -1 and not check_joint_limits(servo_joints):
             print('New configuration was also not successful')
             success = [0]
             servo_joints = -1

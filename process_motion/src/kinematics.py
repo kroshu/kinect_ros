@@ -17,8 +17,8 @@ import yaml
 LOWER_LIMITS = [-170, -120, -170, -120, -170, -120, -175]
 UPPER_LIMITS = [170, 120, 170, 120, 170, 120, 175]
 
-LOWER_LIMITS_R = [math.radians(deg) for deg in LOWER_LIMITS]
-UPPER_LIMITS_R = [math.radians(deg) for deg in UPPER_LIMITS]
+LOWER_LIMITS_R = [0.9 * math.radians(deg) for deg in LOWER_LIMITS]
+UPPER_LIMITS_R = [0.9 * math.radians(deg) for deg in UPPER_LIMITS]
 
 def denavit_to_matrix(s_a, s_alpha, s_d, s_theta, tool_length=0):
     """
@@ -129,7 +129,7 @@ def damped_least_squares(J, mu):
     return J_inv
 
 def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=500, pos_tol=1e-5,
-                rot_tol=1e-3, set_last = 0, joint_limits = False):
+                rot_tol=1e-3, set_last = 0, joint_limits = 0):
     """
     Calculates the joint states for a given cartesian position with servoing in cartesian space
         - param goal_pos: target cartesian position with roll-pitch-yaw orientation
@@ -140,7 +140,9 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         - rot_tol: tolerance for orientation
         - set_last: whether the value for the last joint should be set to be closer to goal
             0 and 1 mean no, other integers equal the number of values to try
-        - joint_limits: whether to try to get away from the joint limits
+        - joint_limits (int): whether to try to get away from the joint limits
+            - 1 means to enforce limits during the iterations
+            - 2 means to calculate with additional goal vector
 
     """
     goal_pos = sp.Matrix(goal_pos).transpose()
@@ -200,7 +202,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         # delta_theta -= null_space_proj * grad(function to minimize)
         goal_vector = sp.Matrix([0, 0, 0, 0, 0, 0, 0])
         null_space_proj = np.eye(joint_count) - J_inv * J
-        if joint_limits:
+        if joint_limits == 2:
             for j in range(joint_count):
                 if abs(joint_states[j]) > sp.pi:
                     print('Joint value exceeds limit, wrapping around')
@@ -226,6 +228,12 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
             writer.writerow(new_joints.evalf(5))
 
         joint_states = [item for sublist in new_joints.tolist() for item in sublist]
+        if joint_limits == 1:
+            for j in range(joint_count):
+                if joint_states[j] > UPPER_LIMITS_R[j]:
+                    joint_states[j] = UPPER_LIMITS_R[j] - 0.0005
+                elif joint_states[j] < LOWER_LIMITS_R[j]:
+                    joint_states[j] = LOWER_LIMITS_R[j] + 0.0005
 
         if orientation:
             goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos)
