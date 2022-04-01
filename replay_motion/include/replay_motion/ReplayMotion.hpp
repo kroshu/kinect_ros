@@ -62,6 +62,7 @@ private:
   rclcpp::Client<kuka_sunrise_interfaces::srv::SetDouble>::SharedPtr set_rate_client_;
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
+  kuka_sunrise_interfaces::srv::SetDouble::Request::SharedPtr set_rate_request_;
 
   void timerCallback();
   bool onRatesChangeRequest(const rclcpp::Parameter & param);

@@ -14,6 +14,7 @@
 
 
 #include "replay_motion/ReplayMotion.hpp"
+#include <sys/mman.h>
 #include <string>
 #include <memory>
 #include <vector>
@@ -34,6 +35,9 @@ ReplayMotion::ReplayMotion(
   const rclcpp::NodeOptions & options)
 : rclcpp::Node(node_name, options)
 {
+  set_rate_request_ = std::make_shared<
+    kuka_sunrise_interfaces::srv::SetDouble::Request>();
+
   auto manage_proc_callback = [this](
     std_msgs::msg::Bool::SharedPtr valid) {
       valid_ = valid->data;
@@ -44,10 +48,10 @@ ReplayMotion::ReplayMotion(
   int i = 0;
   while (rcpputils::fs::exists(
       rcpputils::fs::path(
-        "replay/motion" + std::to_string(
+        "replay/data/motion" + std::to_string(
           i + 1) + ".csv")))
   {
-    csv_path_.push_back("replay/motion" + std::to_string(i + 1) + ".csv");
+    csv_path_.push_back("replay/data/motion" + std::to_string(i + 1) + ".csv");
     i++;
   }
   if (!csv_path_.size()) {
@@ -126,6 +130,18 @@ ReplayMotion::ReplayMotion(
   RCLCPP_INFO(
     this->get_logger(), "Starting publishing with a rate of %lf Hz",
     static_cast<double>(ReplayMotion::us_in_sec_ / duration_us));
+
+  if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
+    RCLCPP_ERROR(get_logger(), "mlockall error");
+    RCLCPP_ERROR(get_logger(), strerror(errno));
+  }
+
+  struct sched_param param;
+  param.sched_priority = 90;
+  if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
+    RCLCPP_ERROR(get_logger(), "setscheduler error");
+    RCLCPP_ERROR(get_logger(), strerror(errno));
+  }
 }
 
 void ReplayMotion::timerCallback()
@@ -369,10 +385,8 @@ bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
 
 bool ReplayMotion::setControllerRate(const double & rate) const
 {
-  auto set_double_request = std::make_shared<
-    kuka_sunrise_interfaces::srv::SetDouble::Request>();
-  set_double_request->data = rate;
-  auto future_result = set_rate_client_->async_send_request(set_double_request);
+  set_rate_request_->data = rate;
+  auto future_result = set_rate_client_->async_send_request(set_rate_request_);
   auto future_status = kuka_sunrise::wait_for_result(
     future_result,
     std::chrono::milliseconds(100));
