@@ -124,7 +124,7 @@ while i < 500:
 
     servo_list = process_result(servo_joints, success)
 
-    if not check_joint_limits(servo_joints):
+    if servo_joints != -1 and not check_joint_limits(servo_joints):
         success = [-1]
         print('Exceeded limits, runnning with new configuration')
         with open('test.csv', 'a', encoding="utf-8") as file:
