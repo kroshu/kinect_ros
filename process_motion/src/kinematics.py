@@ -59,12 +59,21 @@ def calc_jacobian(dh_params, joint_pos=None, exceeded=None):
     yaw = sp.atan2(rot_matrix[1,0], rot_matrix[0,0])
     pitch = sp.atan2(-rot_matrix[2,0], c_p)
     roll = sp.atan2(rot_matrix[2,1], rot_matrix[2,2])
-    if exceeded is not None:
-        removed_joint = (q_symbols[exceeded - 1], joint_pos[exceeded - 1])
+    if exceeded is not None and len(exceeded) == 1:
+        removed_joint = (q_symbols[exceeded[0] - 1], joint_pos[exceeded[0] - 1])
         abs_pos = abs_pos.subs(*removed_joint)
         yaw = yaw.subs(*removed_joint)
         pitch = pitch.subs(*removed_joint)
         roll = roll.subs(*removed_joint)
+    elif exceeded is not None:
+        q_remove = [q_symbols[i - 1] for i in exceeded]
+        values = [joint_pos[i - 1] for i in exceeded]
+        substitutes = zip(q_remove, values)
+        abs_pos = abs_pos.subs(substitutes)
+        yaw = yaw.subs(substitutes)
+        pitch = pitch.subs(substitutes)
+        roll = roll.subs(substitutes)
+
 
     Jv = abs_pos.jacobian(q_symbols)
     if abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
@@ -210,8 +219,8 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         if joint_limits == 1:
             # If exactly one joint exceeds limits
             exceeded = check_joint_limits(sp.Matrix(joint_states) + delta_theta)[1]
-            if len(exceeded) == 1:
-                J = calc_jacobian(dh_params, joint_states, exceeded[0])
+            if len(exceeded) > 0:
+                J = calc_jacobian(dh_params, joint_states, exceeded)
                 J_inv = pseudo_inverse_svd(J)
                 if J_inv == -1:
                     J_inv = damped_least_squares(J, 0.01)
