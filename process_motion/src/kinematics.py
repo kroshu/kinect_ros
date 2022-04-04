@@ -125,6 +125,23 @@ def damped_least_squares(J, mu):
     return J_inv
 
 
+def check_joint_limits(joint_states):
+    """
+    Returns, whether the given joint states are within the limits
+    """
+    exceeded = []
+    if len(joint_states) != len (LOWER_LIMITS):
+        print('Limits are invalid for this robot')
+        return False, exceeded
+    for i in range(len(joint_states)):
+        if (joint_states[i] < LOWER_LIMITS_R[i] 
+            or joint_states[i] > UPPER_LIMITS_R[i]):
+            print (f'Limits exceeded by joint {i + 1}')
+            exceeded.append(i + 1)
+        valid = True if len(exceeded == 0) else False
+    return valid, exceeded
+
+
 def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
                 rot_tol=1e-3, set_last = 0, joint_limits = 0):
     """
@@ -357,16 +374,3 @@ def adjust_goal_pos(trans_matrix, joint_states, goal_pos, tries=1):
         print(f'closest js: {joint_states}')
     return goal_pos_tmp
 
-if __name__ == "__main__":
-    CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
-                            'config', 'LBR_iiwa_DH.yaml')
-    with open(CONFIG_PATH, 'r', encoding="utf-8") as config_file:
-        config_dict = yaml.safe_load(config_file)
-    DH_PARAMS = config_dict["DH_params"]
-
-    JOINT_STATES = [1.1, 0.65, 1.23, -0.23, 0.14, -1.1, 0.8]
-    GOAL_POS = [0.952, 0, 0.34, 0, 1.53, 0]
-
-    result, difference = servo_calcs(DH_PARAMS, GOAL_POS, JOINT_STATES, max_iter=100)
-    sp.pprint(result)
-    sp.pprint(difference)
