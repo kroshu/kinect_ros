@@ -7,12 +7,9 @@ Kinematics calculations of a robot
 """
 
 import math
-import os
-from pathlib import Path
 import csv
 import numpy as np
 import sympy as sp
-import yaml
 
 LOWER_LIMITS = [-170, -120, -170, -120, -170, -120, -175]
 UPPER_LIMITS = [170, 120, 170, 120, 170, 120, 175]
@@ -38,10 +35,12 @@ def denavit_to_matrix(s_a, s_alpha, s_d, s_theta, tool_length=0):
                  [0, 0, 0, 1]])
     return T
 
-def calc_jacobian(dh_params, joint_pos=None):
+def calc_jacobian(dh_params, joint_pos=None, exceeded=None):
     """
     Calculates the Jacobian matrix for a robot chain from base to end effector based on
         Denavit-Hartenberg parameters
+        - param exceeded: if a joint limit is exceeded by exactly one joint, the specified joint is
+            set as constant in the jacobian calculations (joint_pos must not be None!)
     """
 
     joint_count = 0
@@ -54,13 +53,20 @@ def calc_jacobian(dh_params, joint_pos=None):
     # Calculate Jacobian from Transform matrix and rotations
     q_symbols = [sp.symbols(f'q{i + 1}') for i in range(joint_count)]
     abs_pos = trans_matrix[:3, 3]
-    Jv = abs_pos.jacobian(q_symbols)
 
     rot_matrix = trans_matrix[:3, :3]
     c_p = sp.sqrt(rot_matrix[0,0]**2 + rot_matrix[1,0]**2) # this equals cos(pitch)
     yaw = sp.atan2(rot_matrix[1,0], rot_matrix[0,0])
     pitch = sp.atan2(-rot_matrix[2,0], c_p)
     roll = sp.atan2(rot_matrix[2,1], rot_matrix[2,2])
+    if exceeded is not None:
+        removed_joint = (q_symbols[exceeded - 1], joint_pos[exceeded - 1])
+        abs_pos = abs_pos.subs(*removed_joint)
+        yaw = yaw.subs(*removed_joint)
+        pitch = pitch.subs(*removed_joint)
+        roll = roll.subs(*removed_joint)
+
+    Jv = abs_pos.jacobian(q_symbols)
     if abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
         Jw = sp.Matrix([roll - yaw, pitch]).jacobian(q_symbols)
     else:
@@ -138,7 +144,7 @@ def check_joint_limits(joint_states):
             or joint_states[i] > UPPER_LIMITS_R[i]):
             print (f'Limits exceeded by joint {i + 1}')
             exceeded.append(i + 1)
-        valid = True if len(exceeded == 0) else False
+        valid = True if len(exceeded) == 0 else False
     return valid, exceeded
 
 
@@ -195,13 +201,25 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
             J_inv = damped_least_squares(J, 0.01)
         delta_theta = J_inv * diff
 
-
-
         max_change = 0.1
         # maximize the joint change per iteration to $max_change rad
         if max(abs(delta_theta)) > max_change:
             print(f'Reduced big jump in joint angle: {max(abs(delta_theta.evalf()))}')
             delta_theta /= max(abs(delta_theta)) / max_change
+
+        if joint_limits == 1:
+            # If exactly one joint exceeds limits
+            exceeded = check_joint_limits(sp.Matrix(joint_states) + delta_theta)[1]
+            if len(exceeded) == 1:
+                J = calc_jacobian(dh_params, joint_states, exceeded[0])
+                J_inv = pseudo_inverse_svd(J)
+                if J_inv == -1:
+                    J_inv = damped_least_squares(J, 0.01)
+                delta_theta = J_inv * diff
+                if max(abs(delta_theta)) > max_change:
+                    print(f'Reduced big jump in joint angle: {max(abs(delta_theta.evalf()))}')
+                    delta_theta /= max(abs(delta_theta)) / max_change
+
 
         # this matrix projects any vector on the nullspace of J
         # therefore a gradient descent can be added to the update formula
@@ -253,9 +271,6 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         sp.pprint(diff.transpose().evalf(3))
     if i == max_iter:
         print("[ERROR] Could not reach target position in given iterations")
-        if __name__ == "__main__":
-            print("[WARNING] Returning closest solution")
-            return sp.Matrix([min_js]).evalf(3), min_diff.evalf(3)
         return -1, -1
     return sp.Matrix([joint_states]).evalf(4), diff.evalf(4)
 

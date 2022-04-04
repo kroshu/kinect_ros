@@ -9,11 +9,10 @@ Kinematics calculations of a robot
 import os
 from pathlib import Path
 import csv
-import math
+import yaml
 import random
 import numpy as np
 import sympy as sp
-import yaml
 import pandas as pd
 
 import kinematics as kn
@@ -95,9 +94,9 @@ while i < 500:
         for j in range(joint_count):
             joint_states.append(js_orig[j] + diff[j])
             if joint_states[j] > kn.UPPER_LIMITS_R[j]:
-                joint_states[j] = kn.UPPER_LIMITS_R[j]
+                joint_states[j] = round(kn.UPPER_LIMITS_R[j] - 0.0005, 3)
             elif joint_states[j] < kn.LOWER_LIMITS_R[j]:
-                joint_states[j] = kn.LOWER_LIMITS_R[j]
+                joint_states[j] = round(kn.LOWER_LIMITS_R[j] + 0.0005, 3)
     i += 1
     if SET_LAST:
         joint_states[-1] = 0
@@ -105,6 +104,7 @@ while i < 500:
     servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST)[0]
 
     servo_list = process_result(servo_joints, success)
+    # Check joint limits and re-run test, if they were exceeded
     if servo_joints != -1 and not kn.check_joint_limits(servo_joints)[0]:
         success = [-1]
         print('Exceeded limits, runnning with new configuration')
