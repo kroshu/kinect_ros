@@ -38,7 +38,7 @@ def denavit_to_matrix(s_a, s_alpha, s_d, s_theta, tool_length=0):
                  [0, 0, 0, 1]])
     return T
 
-def calc_jacobian(dh_params, joint_pos=None, orientation=True):
+def calc_jacobian(dh_params, joint_pos=None):
     """
     Calculates the Jacobian matrix for a robot chain from base to end effector based on
         Denavit-Hartenberg parameters
@@ -56,26 +56,22 @@ def calc_jacobian(dh_params, joint_pos=None, orientation=True):
     abs_pos = trans_matrix[:3, 3]
     Jv = abs_pos.jacobian(q_symbols)
 
-    if orientation:
-        rot_matrix = trans_matrix[:3, :3]
-        c_p = sp.sqrt(rot_matrix[0,0]**2 + rot_matrix[1,0]**2) # this equals cos(pitch)
-
-        yaw = sp.atan2(rot_matrix[1,0], rot_matrix[0,0])
-        pitch = sp.atan2(-rot_matrix[2,0], c_p)
-        roll = sp.atan2(rot_matrix[2,1], rot_matrix[2,2])
-        if abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
-            Jw = sp.Matrix([roll - yaw, pitch]).jacobian(q_symbols)
-        else:
-            Jw = sp.Matrix([roll, pitch, yaw]).jacobian(q_symbols)
+    rot_matrix = trans_matrix[:3, :3]
+    c_p = sp.sqrt(rot_matrix[0,0]**2 + rot_matrix[1,0]**2) # this equals cos(pitch)
+    yaw = sp.atan2(rot_matrix[1,0], rot_matrix[0,0])
+    pitch = sp.atan2(-rot_matrix[2,0], c_p)
+    roll = sp.atan2(rot_matrix[2,1], rot_matrix[2,2])
+    if abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
+        Jw = sp.Matrix([roll - yaw, pitch]).jacobian(q_symbols)
+    else:
+        Jw = sp.Matrix([roll, pitch, yaw]).jacobian(q_symbols)
 
         J = sp.Matrix([Jv, Jw])
-    else:
-        J = Jv
 
     if joint_pos is None:
         return J
 
-    if  orientation and c_p.subs(zip(q_symbols, joint_pos)).evalf() < 1e-6:
+    if  c_p.subs(zip(q_symbols, joint_pos)).evalf() < 1e-6:
         print("Pitch is almost +-90°")
         # in this case, the solution is not straighforward
         # atan2(0, 0) would be nan -> orientation is calculated with a different joint setup
@@ -128,13 +124,13 @@ def damped_least_squares(J, mu):
     J_inv = J.transpose() * (J * J.transpose() + mu * np.eye(sp.shape(J)[0])).inv()
     return J_inv
 
-def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=500, pos_tol=1e-5,
+
+def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
                 rot_tol=1e-3, set_last = 0, joint_limits = 0):
     """
     Calculates the joint states for a given cartesian position with servoing in cartesian space
         - param goal_pos: target cartesian position with roll-pitch-yaw orientation
         - param joint_states: actual joint values
-        - orientation: False, if only position is to be set, True otherwise
         - max_iter: maximum number of iterations
         - pos_tol: tolerance for cartesian position
         - rot_tol: tolerance for orientation
@@ -154,17 +150,12 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
         writer.writerow([f'joint{i + 1}' for i in range(joint_count)])
 
     trans_matrix = calc_transform(dh_params)
-    if orientation:
-        goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos, set_last)
-    else:
-        goal_pos_tmp = goal_pos.copy()
+    goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos, set_last)
+
     actual_pos = calc_forw_kin(trans_matrix, joint_states)
 
     sp.pprint(goal_pos_tmp.evalf(3))
     sp.pprint(actual_pos.transpose().evalf(3))
-
-    if not orientation:
-        rot_tol = float('inf')
 
     diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
     i = 0
@@ -181,14 +172,13 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
             min_diff = diff
         print(diff[:3,:].norm(), diff[3:,:].norm().evalf(), i)
         i += 1
-        J = calc_jacobian(dh_params, joint_states, orientation)
+        J = calc_jacobian(dh_params, joint_states)
         J_inv = pseudo_inverse_svd(J)
         if J_inv == -1:
             J_inv = damped_least_squares(J, 0.01)
-        if orientation:
-            delta_theta = J_inv * diff
-        else:
-            delta_theta = J_inv * diff[:3, :]
+        delta_theta = J_inv * diff
+
+
 
         max_change = 0.1
         # maximize the joint change per iteration to $max_change rad
@@ -235,18 +225,14 @@ def servo_calcs(dh_params, goal_pos, joint_states, orientation=True, max_iter=50
                 elif joint_states[j] < LOWER_LIMITS_R[j]:
                     joint_states[j] = LOWER_LIMITS_R[j] + 0.0005
 
-        if orientation:
-            goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos)
-        else:
-            goal_pos_tmp = goal_pos.copy()
+        goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos)
+
 
         actual_pos = calc_forw_kin(trans_matrix, joint_states)
         sp.pprint(actual_pos.transpose().evalf(3))
 
-        if orientation:
-            diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
-        else:
-            diff = sp.Matrix([goal_pos_tmp[:3]]).transpose() - actual_pos[:3,:]
+        diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
+
         sp.pprint(diff.transpose().evalf(3))
     if i == max_iter:
         print("[ERROR] Could not reach target position in given iterations")
