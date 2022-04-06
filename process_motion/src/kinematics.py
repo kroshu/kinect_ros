@@ -197,7 +197,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
     min_diff = []
     if diff[:3,:].norm() > 0.5:  # TODO
         print("[ERROR] Initial distance too big")
-        return -1, -1
+        return None, None
     while ((diff[:3,:].norm() > pos_tol or diff[3:,:].norm() > rot_tol) and i < max_iter):
         if diff.norm() < min_dist:
             min_js = joint_states
@@ -213,7 +213,6 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         max_change = 0.1
         # maximize the joint change per iteration to $max_change rad
         if max(abs(delta_theta)) > max_change:
-            print(f'Reduced big jump in joint angle: {max(abs(delta_theta.evalf()))}')
             delta_theta /= max(abs(delta_theta)) / max_change
 
         if joint_limits == 1:
@@ -226,7 +225,6 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
                     J_inv = damped_least_squares(J, 0.01)
                 delta_theta = J_inv * diff
                 if max(abs(delta_theta)) > max_change:
-                    print(f'Reduced big jump in joint angle: {max(abs(delta_theta.evalf()))}')
                     delta_theta /= max(abs(delta_theta)) / max_change
 
 
@@ -280,7 +278,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         sp.pprint(diff.transpose().evalf(3))
     if i == max_iter:
         print("[ERROR] Could not reach target position in given iterations")
-        return -1, -1
+        return None, None
     return sp.Matrix([joint_states]).evalf(4), diff.evalf(4)
 
 def calc_transform(dh_params):

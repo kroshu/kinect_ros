@@ -41,7 +41,7 @@ def process_result(joint_result, success):
     """
     Checks for joint values that can be wrapped around
     """
-    if joint_result == -1:
+    if joint_result == None:
         success.append(0)
         processed_js = [np.nan] * 7
     else:
@@ -102,10 +102,10 @@ while i < 500:
         joint_states[-1] = 0
     goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig, all_dof=True)
     servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST)[0]
-
     servo_list = process_result(servo_joints, success)
+
     # Check joint limits and re-run test, if they were exceeded
-    if servo_joints != -1 and not kn.check_joint_limits(servo_joints)[0]:
+    if servo_joints != None and not kn.check_joint_limits(servo_joints)[0]:
         success = [-1]
         print('Exceeded limits, runnning with new configuration')
         with open('test.csv', 'a', encoding="utf-8") as file:
@@ -115,17 +115,17 @@ while i < 500:
         success = []
         servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
                                       joint_limits=1)[0]
-        if servo_joints == -1:
+        if servo_joints == None:
             print('Enforcing joint limits also failed, retrying with goal vector')
             servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
                                           joint_limits=2)[0]
         servo_list = process_result(servo_joints, success)
-        if servo_joints != -1 and not kn.check_joint_limits(servo_joints)[0]:
+        if servo_joints != None and not kn.check_joint_limits(servo_joints)[0]:
             print('New configuration was also not successful')
             success = [0]
-            servo_joints = -1
+            servo_joints = None
 
-    if servo_joints != -1:
+    if servo_joints != None:
         diff_mod = sp.Matrix(joint_states).transpose() - servo_joints
 
         # Ignore last joint in evaluation of solution,
@@ -135,7 +135,7 @@ while i < 500:
             diff_mod = sp.Matrix(diff_mod[:6])
         distances.append(round(sp.Matrix(diff).norm(), 4))
         distances.append(round(diff_mod.norm(), 4))
-        if sp.Matrix(diff).norm() < diff_mod.norm():
+        if round(sp.Matrix(diff).norm(), 4) < round(diff_mod.norm(), 4):
             distances.append(0)
         else:
             distances.append(1)
