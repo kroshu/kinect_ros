@@ -68,7 +68,7 @@ def calc_jacobian(dh_params, joint_pos=None, exceeded=None):
     elif exceeded is not None:
         q_remove = [q_symbols[i - 1] for i in exceeded]
         values = [joint_pos[i - 1] for i in exceeded]
-        substitutes = zip(q_remove, values)
+        substitutes = dict(zip(q_remove, values))
         abs_pos = abs_pos.subs(substitutes)
         yaw = yaw.subs(substitutes)
         pitch = pitch.subs(substitutes)
@@ -81,7 +81,7 @@ def calc_jacobian(dh_params, joint_pos=None, exceeded=None):
     else:
         Jw = sp.Matrix([roll, pitch, yaw]).jacobian(q_symbols)
 
-        J = sp.Matrix([Jv, Jw])
+    J = sp.Matrix([Jv, Jw])
 
     if joint_pos is None:
         return J
