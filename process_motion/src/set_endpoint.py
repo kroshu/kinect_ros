@@ -52,14 +52,22 @@ def set_endpoint(data_csv, config, first):
     if max(abs(diff)) > 0.25:
         print('[WARNING] There was a big change in one of the joint values')
         print(diff)
-    # TODO: set different reference_count for the last joint
     for i in range (config.reference_count):
         if first:
             data_csv.iloc[i] = (data_csv.iloc[i] + diff * (config.reference_count + 1 - i) /
                                 (config.reference_count + 1))
         else:
-            data_csv.iloc[-i] = (data_csv.iloc[-i] + diff * (config.reference_count + 1 - i) /
+            data_csv.iloc[-i - 1] = (data_csv.iloc[-i - 1] + diff * (config.reference_count + 1 - i) /
                                  (config.reference_count + 1))
+    last_joint_mod = abs(int(diff.iloc[-1] / 0.075)) + 1
+    if last_joint_mod > config.reference_count:
+        for i in range (last_joint_mod):
+            if first:
+                data_csv.iloc[i, -1] = (data_csv.iloc[i, -1] + diff.iloc[-1] * (last_joint_mod + 1 - i) /
+                                    (last_joint_mod + 1))
+            else:
+                data_csv.iloc[-i -1, -1] = (data_csv.iloc[-i -1, -1] + diff.iloc[-1] * (last_joint_mod + 1 - i) /
+                                    (last_joint_mod + 1))
     return data_csv
 
 
