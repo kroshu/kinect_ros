@@ -169,8 +169,10 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         - set_last: whether the value for the last joint should be set to be closer to goal
             0 and 1 mean no, other integers equal the number of values to try
         - joint_limits (int): whether to try to get away from the joint limits
-            - 1 means to enforce limits during the iterations
+            - 1 means to enforce limits during the iterations (exclude joint from Jacobian)
             - 2 means to calculate with additional goal vector
+            - 3 means to enforce limits during the iterations with additionan goal vector
+            
 
     """
     goal_pos = sp.Matrix(goal_pos).transpose()
@@ -213,7 +215,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         if delta_theta.norm() < 1e-5:
             delta_theta = sp.Matrix([0, 0, 0, 0, 0, 0, 0])
 
-        if joint_limits == 1:
+        if joint_limits in [1, 3]:
             exceeded = check_joint_limits((sp.Matrix(joint_states) + delta_theta).evalf(4))[1]
             if len(exceeded) > 0:
                 J = calc_jacobian(dh_params, joint_states, exceeded)
@@ -234,8 +236,8 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         goal_vector = sp.Matrix([0, 0, 0, 0, 0, 0, 0])
         null_space_proj = np.eye(joint_count) - J_inv * J
         if joint_limits == 2:
+            # goal vector will be a linear, x = 90 to 100%, y = 0 to 1
             limit_length = (sp.Matrix(UPPER_LIMITS_R) - sp.Matrix(LOWER_LIMITS_R))
-            # TODO: factor
             goal_vector = (sp.Matrix(joint_states) - (sp.Matrix(LOWER_LIMITS_R)
                            + sp.Matrix(UPPER_LIMITS_R)))
             for j in range(joint_count):
@@ -248,21 +250,12 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
                 if abs(goal_vector[j]) < 0.45:
                     goal_vector[j] = 0
                 else:
-                    goal_vector[j] = 10 * (goal_vector[j] - 0.45 * np.sign(goal_vector[j]))
-                # if abs((joint_states[j] - (LOWER_LIMITS_R[j] + UPPER_LIMITS_R[j]))
-                #        / limit_length[j]) > 0.49:
-                #     goal_vector[j] = np.sign(joint_states[j]) * 1     
-        elif joint_limits == 0:
-            goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints)) # TODO: factors        
+                    goal_vector[j] = 10 * (goal_vector[j] - 0.45 * np.sign(goal_vector[j]))   
+        elif joint_limits in [0, 3]:
+            goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints))      
         goal_adjust = null_space_proj * goal_vector
-        print(goal_vector)
-        print(goal_adjust)
-        
-        # if max(abs(goal_adjust)) > 0.1:
-        #     goal_adjust /= max(abs(goal_adjust)) * 10
         delta_theta -= goal_adjust
 
-        
         new_joints = sp.Matrix(joint_states) + delta_theta
         sp.pprint(new_joints.transpose().evalf(3))
 
@@ -271,6 +264,15 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
             writer.writerow(new_joints.evalf(5))
 
         joint_states = [item for sublist in new_joints.tolist() for item in sublist]
+        
+        # In this case limits should be enforced, but the goal vector can modify blocked joints
+        if joint_limits == 3:
+            for j in range(joint_count):
+                if joint_states[j] > UPPER_LIMITS_R[j]:
+                    joint_states[j] = UPPER_LIMITS_R[j] - 0.0005
+                elif joint_states[j] < LOWER_LIMITS_R[j]:
+                    joint_states[j] = LOWER_LIMITS_R[j] + 0.0005
+
         goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos)
         actual_pos = calc_forw_kin(trans_matrix, joint_states)
         sp.pprint(actual_pos.transpose().evalf(3))
@@ -284,7 +286,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
             print('Joint limits exceeded, termination blocked')
         else:
             blocked = False
-    if i == max_iter and not blocked:
+    if i == max_iter:
         print("[ERROR] Could not reach target position in given iterations")
         return None, None
     return sp.Matrix([joint_states]).evalf(4), diff.evalf(4)

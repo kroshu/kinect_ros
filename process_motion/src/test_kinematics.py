@@ -119,6 +119,10 @@ while i < 500:
             print('Enforcing joint limits also failed, retrying with goal vector')
             servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
                                           joint_limits=2)[0]
+            if servo_joints == None:
+                print('Goal vector failed, last attempt with enforcing + goal vector')
+                servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
+                                              max_iter = 500, joint_limits=3)[0]
         servo_list = process_result(servo_joints, success)
         if servo_joints != None and not kn.check_joint_limits(servo_joints)[0]:
             print('New configuration was also not successful')
