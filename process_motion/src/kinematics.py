@@ -244,8 +244,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
                 if abs(joint_states[j]) > sp.pi:
                     print('Joint value exceeds limit, wrapping around')
                     joint_states[j] -= np.sign(joint_states[j]) * 2 * sp.pi.evalf()
-                    goal_vector[j] = (sp.Matrix(joint_states[j]) - (sp.Matrix(LOWER_LIMITS_R[j])
-                                   + sp.Matrix(UPPER_LIMITS_R[j])))
+                    goal_vector[j] = joint_states[j] - (LOWER_LIMITS_R[j] + UPPER_LIMITS_R[j])
                 goal_vector[j] /= limit_length[j]
                 if abs(goal_vector[j]) < 0.45:
                     goal_vector[j] = 0
