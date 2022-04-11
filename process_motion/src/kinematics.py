@@ -265,8 +265,9 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
 
         joint_states = [item for sublist in new_joints.tolist() for item in sublist]
         
-        # In this case limits should be enforced, but the goal vector can modify blocked joints
-        if joint_limits == 3:
+        # Limits are enforced, but new delta_theta in reduced DOF scenario can exceed a limit
+        #   for another joint
+        if joint_limits in [1, 3]:
             for j in range(joint_count):
                 if joint_states[j] > UPPER_LIMITS_R[j]:
                     joint_states[j] = UPPER_LIMITS_R[j] - 0.0005
