@@ -187,7 +187,6 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
     goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos, set_last)
 
     actual_pos = calc_forw_kin(trans_matrix, joint_states)
-
     sp.pprint(goal_pos_tmp.evalf(3))
     sp.pprint(actual_pos.transpose().evalf(3))
 
@@ -251,7 +250,9 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
                 else:
                     goal_vector[j] = 10 * (goal_vector[j] - 0.45 * np.sign(goal_vector[j]))   
         elif joint_limits in [0, 3]:
-            goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints))      
+            goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints))
+            if set_last:
+                goal_vector[-1] = 0
         goal_adjust = null_space_proj * goal_vector
         delta_theta -= goal_adjust
 
@@ -275,11 +276,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
 
         goal_pos_tmp = adjust_goal_pos(trans_matrix, joint_states, goal_pos)
         actual_pos = calc_forw_kin(trans_matrix, joint_states)
-        sp.pprint(actual_pos.transpose().evalf(3))
-
         diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
-
-        sp.pprint(diff.transpose().evalf(3))
 
         if joint_limits == 2 and not check_joint_limits(joint_states)[0]:
             blocked = True
@@ -290,6 +287,48 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         print("[ERROR] Could not reach target position in given iterations")
         return None, None
     return sp.Matrix([joint_states]).evalf(4), diff.evalf(4)
+
+def servo_all_methods(dh_params, goal_pos, joint_states, set_last = 0):
+    """
+    Runs servo_calcs with 3 different methods (if necessary) to avoid joint limits
+    """
+    servo_joints = servo_calcs(dh_params, goal_pos, joint_states, set_last=set_last)[0]
+    servo_list = process_result(servo_joints)
+
+    # Check joint limits and re-run test, if they were exceeded
+    if servo_joints != None and not check_joint_limits(servo_joints)[0]:
+        print('[WARNING] Exceeded limits, runnning with new configuration')        
+        servo_joints = servo_calcs(dh_params, goal_pos, joint_states, set_last=set_last,
+                                      max_iter = 250, joint_limits=1)[0]
+        if servo_joints == None:
+            print('[WARNING] Enforcing joint limits also failed, retrying with goal vector')
+            servo_joints = servo_calcs(dh_params, goal_pos, joint_states, set_last=set_last,
+                                          max_iter = 250, joint_limits=2)[0]
+            if servo_joints == None:
+                print('[WARNING] Goal vector failed, last attempt with enforcing + goal vector')
+                servo_joints = servo_calcs(dh_params, goal_pos, joint_states, set_last=set_last,
+                                              max_iter = 250, joint_limits=3)[0]
+        servo_list = process_result(servo_joints)
+        if servo_joints != None and not check_joint_limits(servo_joints)[0]:
+            print('[ERROR] New configuration was also not successful')
+            servo_joints = None
+    return servo_joints
+
+def process_result(joint_result):
+    """
+    Checks for joint values that can be wrapped around
+    """
+    if joint_result == None:
+        processed_js = [np.nan] * 7
+    else:
+        for i in range(len(joint_result.tolist())):
+            if abs(joint_result[i]) > sp.pi:
+                print('Joint value exceeds limit, but can be made valid')
+                cycles = int(abs(joint_result[i] / (2 * sp.pi)))
+                joint_result[i] -= np.sign(joint_result[i]) * 2 * sp.pi.evalf() * (cycles + 1)
+        processed_js = [round(item, 4) for sublist in joint_result.tolist() for item in sublist]
+
+    return processed_js
 
 def calc_transform(dh_params):
     """
@@ -374,11 +413,10 @@ def adjust_goal_pos(trans_matrix, joint_states, goal_pos, tries=1):
         if tries > 1:
             js_tmp[6] = np.round((i - (tries - 1) / 2) * 6.28 / (tries + 1), 4)
         actual_pos = calc_forw_kin(trans_matrix, js_tmp)
-
         # Wrap around orientation values (-180° -> 180° transition)
         for j in range(3, min(len(actual_pos), len(goal_pos))):
             if abs(actual_pos[j] - goal_pos_i[j]) > 3.2:  # create hysteresis
-                goal_pos_i[j] += np.sign(actual_pos[j]) * 2 * sp.pi.evalf()
+                goal_pos_i[j] -= np.sign(goal_pos_i[j]) * 2 * sp.pi.evalf()
                 if tries == 1:
                     print('Wrapped around orientation, new goal position:')
                     sp.pprint(goal_pos_i.evalf(3))

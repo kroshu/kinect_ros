@@ -42,7 +42,7 @@ def set_endpoint(data_csv, config, first):
     goal_pos = [config.position['x'], config.position['y'], config.position['z'],
                 config.orientation['r'], config.orientation['p'], config.orientation['y']]
     try:
-        result = (np.array(kn.servo_calcs(DH_PARAMS, goal_pos, joint_states)[0].transpose())
+        result = (np.array(kn.servo_all_methods(DH_PARAMS, goal_pos, joint_states).transpose())
                   .astype(np.float64))
     except AttributeError:
         print('[ERROR] Setting endpoint not successful')

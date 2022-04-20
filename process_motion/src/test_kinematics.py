@@ -37,24 +37,6 @@ while f'joint_{joint_count + 1}' in DH_PARAMS.keys():
     joint_count += 1
 print(f'Number of joints: {joint_count}')
 
-def process_result(joint_result, success):
-    """
-    Checks for joint values that can be wrapped around
-    """
-    if joint_result == None:
-        success.append(0)
-        processed_js = [np.nan] * 7
-    else:
-        for i in range(joint_count):
-            if abs(joint_result[i]) > sp.pi:
-                print('Joint value exceeds limit, but can be made valid')
-                cycles = int(abs(joint_result[i] / (2 * sp.pi)))
-                joint_result[i] -= np.sign(joint_result[i]) * 2 * sp.pi.evalf() * (cycles + 1)
-        success.append(1)
-        processed_js = [round(item, 4) for sublist in servo_joints.tolist() for item in sublist]
-
-    return processed_js
-
 # Print headers
 with open('test.csv', 'w', encoding="utf-8") as file:
     writer = csv.writer(file)
@@ -102,7 +84,7 @@ while i < 500:
         joint_states[-1] = 0
     goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig, all_dof=True)
     servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST)[0]
-    servo_list = process_result(servo_joints, success)
+    servo_list = kn.process_result(servo_joints)
 
     # Check joint limits and re-run test, if they were exceeded
     if servo_joints != None and not kn.check_joint_limits(servo_joints)[0]:
@@ -114,22 +96,23 @@ while i < 500:
                             + success)
         success = []
         servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
-                                      joint_limits=1)[0]
+                                      max_iter = 250, joint_limits=1)[0]
         if servo_joints == None:
             print('Enforcing joint limits also failed, retrying with goal vector')
             servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
-                                          joint_limits=2)[0]
+                                          max_iter = 250, joint_limits=2)[0]
             if servo_joints == None:
                 print('Goal vector failed, last attempt with enforcing + goal vector')
                 servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
-                                              max_iter = 500, joint_limits=3)[0]
-        servo_list = process_result(servo_joints, success)
+                                              max_iter = 250, joint_limits=3)[0]
+        servo_list = kn.process_result(servo_joints)
         if servo_joints != None and not kn.check_joint_limits(servo_joints)[0]:
             print('New configuration was also not successful')
             success = [0]
             servo_joints = None
 
     if servo_joints != None:
+        success = [1]
         diff_mod = sp.Matrix(joint_states).transpose() - servo_joints
 
         # Ignore last joint in evaluation of solution,
@@ -143,6 +126,8 @@ while i < 500:
             distances.append(0)
         else:
             distances.append(1)
+    else:
+        success = [0]
     with open('test.csv', 'a', encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow(js_orig + joint_states + servo_list + success + distances)
