@@ -139,17 +139,17 @@ To avoid bigger changes in the joint values during motion, deterministic inverse
 ### Joint 1 and 2
 The shoulder has 3 degrees of freedom, two of which determine the position of the elbow. The proportion of x and y displacementes determine the first angle, while the proportion of vertical and orthogonal displacements the second one (&Theta;<sub>i</sub> is the angle of the i-th joint):
 
-![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_1=\mathrm{atan2}(\Delta{}x,\Delta{}y)) 
+![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_1=\mathrm{atan2}(\Delta{}y,\Delta{}x)) 
 
-![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_2=\mathrm{atan2}(\Delta{}z,\sqrt{\Delta{}x^2+\Delta{}y^2})) 
+![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_2=\mathrm{atan2}(\sqrt{\Delta{}x^2+\Delta{}y^2},\Delta{}z)) 
 
 ### Joint 3 and 4
 
 Similiarly, the same equation are true for joint 3 and 4, if the displacements are calculated in the coordinate system of the elbow. (The fourth joint's rotation axis points int the other direction, therefore a minus is needed)
 
-![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_3=\mathrm{atan2}(\Delta{}x_{elbow},\Delta{}y_{elbow})) 
+![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_3=\mathrm{atan2}(\Delta{}y_{elbow},\Delta{}x_{elbow})) 
 
-![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_4=-\mathrm{atan2}\(\Delta{}z_{elbow},\sqrt{\Delta{}x_{elbow}^2+\Delta{}y_{elbow}^2}\))
+![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_4=-\mathrm{atan2}\(\sqrt{\Delta{}x_{elbow}^2+\Delta{}y_{elbow}^2}\,\Delta{}z_{elbow}\))
 
 Therefore a coordinate transformation is needed from the global system to the elbow. By joint angle values of 0, the robot's axes of rotation point in the z- and y-directions, which was taken into account by the coordinate transformations:
 
@@ -166,11 +166,11 @@ This transforms the base coordinate system into the new one, every vector can be
 
 Joint 3 needed some further adjustments, as the workspace of the human arm would have been in the range 40...200 degrees, while the robot's range is -160...160 degrees. This means some positions would not have been reachable, while others only with a big leap from 160 to -160. A solution to that is to mirror the workspace of the human arm, so the angle of joint 3 is calculated by:
 
-![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_3=\mathrm{atan2}(-\Delta{}x_{elbow},-\Delta{}y_{elbow})) 
+![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_3=\mathrm{atan2}(-\Delta{}y_{elbow},-\Delta{}x_{elbow})) 
 
 This means that the angle of joint 4 must be reversed:
 
-![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_4=\mathrm{atan2}\(\Delta{}z_{elbow},\sqrt{\Delta{}x_{elbow}^2+\Delta{}y_{elbow}^2}\))
+![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_4=\mathrm{atan2}\(\sqrt{\Delta{}x_{elbow}^2+\Delta{}y_{elbow}^2}\,\Delta{}z_{elbow}\))
 
 ### Joint 5 and 6
 
@@ -190,17 +190,17 @@ The camera can't determine the pose of the thumb with a required efficiency, the
 
 The mapping can be described mathematically with the following formulas:
 
-![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_5=\mathrm{atan2}(|\Delta{}x_{wrist}|,|\Delta{}y_{wrist}|)) 
+![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_5=\mathrm{atan2}(|\Delta{}y_{wrist}|,|\Delta{}x_{wrist}|)) 
 
 By joint 6 the sign of the relative positions must be considered, and to assure continuous joint values without leaps, two cases should be considered:
 
 ![](https://latex.codecogs.com/svg.latex?&space;\lvert\Delta{}x\rvert<\lvert\Delta{}y\lvert:)
 
-![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_6=\mathrm{sgn}(y)*\mathrm{atan2}\(\Delta{}z_{wrist},\sqrt{\Delta{}x_{wrist}^2+\Delta{}y_{wrist}^2}\))
+![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_6=\mathrm{sgn}(y)*\mathrm{atan2}\(\sqrt{\Delta{}x_{wrist}^2+\Delta{}y_{wrist}^2}\,\Delta{}z_{wrist}\))
 
 ![](https://latex.codecogs.com/svg.latex?&space;\lvert\Delta{}x\rvert\ge\lvert\Delta{}y\lvert:)
 
-![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_6=\mathrm{sgn}(x)*\mathrm{atan2}\(\Delta{}z_{wrist},\sqrt{\Delta{}x_{wrist}^2+\Delta{}y_{wrist}^2}\))
+![](https://latex.codecogs.com/svg.latex?&space;\Theta{}_6=\mathrm{sgn}(x)*\mathrm{atan2}\(\sqrt{\Delta{}x_{wrist}^2+\Delta{}y_{wrist}^2}\,\Delta{}z_{wrist}\))
 
 
 The trigonometric calculations and coordinate transformations could be easily implemented with math and eigen packages, the resulting joint angles sent to the joint controller node for execution. The implementation is done in the map_arm package, which filters the incoming markers for the necessary ones and calculates the inverse kinematics, finally publishing the reference joint states.
