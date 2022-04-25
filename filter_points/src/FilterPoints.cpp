@@ -65,11 +65,11 @@ void FilterPoints::markersReceivedCallback(
       static_cast<int>(BODY_TRACKING_JOINTS::HANDTIP_RIGHT);
     });
 
-  auto pelvis_it = std::find_if(
+  auto shoulder_it = std::find_if(
     msg->markers.begin(), msg->markers.end(),
     [](const visualization_msgs::msg::Marker & marker) {
       int joint_id = marker.id % 100;
-      return joint_id == static_cast<int>(BODY_TRACKING_JOINTS::PELVIS);
+      return joint_id == static_cast<int>(BODY_TRACKING_JOINTS::SHOULDER_RIGHT);
     });
 
   auto wrist_it = std::find_if(
@@ -108,15 +108,19 @@ void FilterPoints::markersReceivedCallback(
   if (handtip_it != msg->markers.end() && thumb_it != msg->markers.end() &&
     wrist_it != msg->markers.end())
   {
-    if (pelvis_it != msg->markers.end()) {
-      pelvis_pose_ = pelvis_it->pose;
+    if (shoulder_it != msg->markers.end()) {
+      shoulder_pose_ = shoulder_it->pose;
       handtip_pose_ = handtip_it->pose;
       wrist_pose_ = wrist_it->pose;
       thumb_pose_ = thumb_it->pose;
 
       rel_pose_.position = PoseDiff(
         handtip_pose_.position,
-        pelvis_pose_.position);
+        shoulder_pose_.position);
+      rel_pose_.position.x /= 0.84;
+      rel_pose_.position.y /= 0.84;
+      rel_pose_.position.z /= 0.84;
+      rel_pose_.position.z += 0.342;  // add joint_1 (robot shoulder) distance from base
       orientation_z_ = PoseDiff(handtip_pose_.position, wrist_pose_.position);
       orientation_y_ = PoseDiff(thumb_pose_.position, wrist_pose_.position);
       orientation_x_ = CrossProduct(orientation_y_, orientation_z_);
@@ -127,8 +131,8 @@ void FilterPoints::markersReceivedCallback(
 
       if (stop_it != msg->markers.end()) {
         stop_pose_ = stop_it->pose;
-        left_stop_ = PoseDiff(stop_pose_.position, pelvis_pose_.position);
-        if (left_stop_.z > 0.6) {
+        left_stop_ = PoseDiff(stop_pose_.position, shoulder_pose_.position);
+        if (left_stop_.z > 0.4) {
           RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
           change_state_client_->async_send_request(trigger_request_);
         }
@@ -152,7 +156,7 @@ void FilterPoints::markersReceivedCallback(
           delta_len);
       }
     } else {
-      RCLCPP_WARN(get_logger(), "Pelvis joint not found, skipping frame");
+      RCLCPP_WARN(get_logger(), "Shoulder joint not found, skipping frame");
       change_state_client_->async_send_request(trigger_request_);
     }
   } else {

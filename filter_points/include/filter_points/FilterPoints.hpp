@@ -43,7 +43,7 @@ public:
 
 private:
   bool valid_;
-  geometry_msgs::msg::Pose pelvis_pose_, handtip_pose_, wrist_pose_, thumb_pose_, rel_pose_,
+  geometry_msgs::msg::Pose shoulder_pose_, handtip_pose_, wrist_pose_, thumb_pose_, rel_pose_,
     prev_rel_pose_, stop_pose_;
   geometry_msgs::msg::Point orientation_x_, orientation_y_, orientation_z_, left_stop_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
