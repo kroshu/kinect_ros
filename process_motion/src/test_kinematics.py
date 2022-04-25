@@ -11,20 +11,19 @@ from pathlib import Path
 import csv
 import yaml
 import random
-import numpy as np
 import sympy as sp
 import pandas as pd
 
 import kinematics as kn
 
 # should equal the $tries argument of kinematic.adjust_goal function (odd integer or 0)
-SET_LAST = 5
+SET_LAST = 11
 
 CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
                            'config', 'LBR_iiwa_DH.yaml')
 
 CSV_PATH = os.path.join(str(Path(__file__).parent.parent.parent.parent.parent.absolute()),
-                           'data', 'set_test_constants', '0_combined.csv')
+                           'data', 'set_test_constants', 'failed.csv')
 
 with open(CONFIG_PATH, 'r', encoding="utf-8") as config_file:
     config_dict = yaml.safe_load(config_file)

@@ -59,6 +59,13 @@ def calc_jacobian(dh_params, joint_pos=None, exceeded=None):
     yaw = sp.atan2(rot_matrix[1,0], rot_matrix[0,0])
     pitch = sp.atan2(-rot_matrix[2,0], c_p)
     roll = sp.atan2(rot_matrix[2,1], rot_matrix[2,2])
+
+    if joint_pos is None:
+        Jv = abs_pos.jacobian(q_symbols)
+        Jw = sp.Matrix([roll, pitch, yaw]).jacobian(q_symbols)
+        J = sp.Matrix([Jv, Jw])
+        return J
+
     if exceeded is not None and len(exceeded) == 1:
         removed_joint = (q_symbols[exceeded[0] - 1], joint_pos[exceeded[0] - 1])
         abs_pos = abs_pos.subs(*removed_joint)
@@ -74,17 +81,14 @@ def calc_jacobian(dh_params, joint_pos=None, exceeded=None):
         pitch = pitch.subs(substitutes)
         roll = roll.subs(substitutes)
 
-
     Jv = abs_pos.jacobian(q_symbols)
     if abs(abs(pitch.subs(zip(q_symbols, joint_pos))).evalf() - sp.pi/2) < 0.05:
         Jw = sp.Matrix([roll - yaw, pitch]).jacobian(q_symbols)
     else:
         Jw = sp.Matrix([roll, pitch, yaw]).jacobian(q_symbols)
 
+    Jw = sp.Matrix([roll, pitch, yaw]).jacobian(q_symbols)
     J = sp.Matrix([Jv, Jw])
-
-    if joint_pos is None:
-        return J
 
     if  c_p.subs(zip(q_symbols, joint_pos)).evalf() < 1e-6:
         print("Pitch is almost +-90°")
@@ -107,7 +111,7 @@ def pseudo_inverse(J):
     Calculates the pseudo inverse for a given Jacobian matrix
     """
     det = (J * J.transpose()).det()
-    if det < 1e-8:
+    if det < 1e-9:
         print(f'Singularity reached, determinant: {det}')
         return -1
 
@@ -119,7 +123,7 @@ def pseudo_inverse_svd(J):
     Calculates the pseudo inverse for a given Jacobian matrix based on SVD
     """
     U, S, V = np.linalg.svd(np.array(J).astype(np.float64))
-    if np.linalg.det(np.diag(S)) < 1e-8:
+    if np.linalg.det(np.diag(S)) < 1e-9:
         print("Singularity reached")
         return -1
     S_inv = np.linalg.inv(np.diag(S))
@@ -346,7 +350,7 @@ def calc_transform(dh_params):
     for i in range(joint_count):
         joint_dh = dh_params[f'joint_{i + 1}'][0].split(' ')
 
-        if i == joint_count -1:
+        if i == joint_count - 1:
             trans_matrix = trans_matrix * denavit_to_matrix(*joint_dh, tool_length)
         else:
             trans_matrix = trans_matrix * denavit_to_matrix(*joint_dh)
