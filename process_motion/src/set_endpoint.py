@@ -16,6 +16,7 @@ import yaml
 import kinematics as kn
 
 ALLOWED_KEYS = ['reference_count', 'position', 'orientation']
+SET_LAST = 11
 
 class Dict2Class:
     """
@@ -36,24 +37,36 @@ def set_endpoint(data_csv, config, first):
     Set exact endpoints to a motion based on the config file.
     """
     if first:
-        joint_states = data_csv.iloc[0]
+        joint_states = data_csv.iloc[0].values.tolist()
     else:
-        joint_states = data_csv.iloc[-1]
+        joint_states = data_csv.iloc[-1].values.tolist()
     goal_pos = [config.position['x'], config.position['y'], config.position['z'],
                 config.orientation['r'], config.orientation['p'], config.orientation['y']]
-    try:
-        result = (np.array(kn.servo_all_methods(DH_PARAMS, goal_pos, joint_states).transpose())
-                  .astype(np.float64))
-    except AttributeError:
-        print('[ERROR] Setting endpoint not successful')
-        return data_csv
-    result_df = pd.DataFrame(result)[0]
+    
+    result = kn.servo_all_methods(DH_PARAMS, goal_pos, joint_states, set_last = SET_LAST)
+    
+    if result is None:
+        print('[WARNING] Setting endpoint not successful with first attempt')
+        print('[WARNING] Trying with different values for joint 7')
+        for i in range(11):
+            joint_states_mod = joint_states.copy()
+            joint_states_mod[6] = np.round((i - (SET_LAST - 1) / 2) * 6.28 / (SET_LAST + 1), 4)
+            result = kn.servo_all_methods(DH_PARAMS, goal_pos, joint_states_mod)
+            if result is not None:
+                break
+            if i == SET_LAST - 1:
+                print('[ERROR] Setting endpoint not successful')
+                return data_csv
+    result_arr = (np.array(result.transpose()).astype(np.float64))
+    result_df = pd.DataFrame(result_arr)[0]
     diff = result_df - joint_states
-    if max(abs(diff)) > 0.25:
+    if max(abs(diff[:6])) > 0.25:
         print('[WARNING] There was a big change in one of the joint values')
         print(diff)
 
     last_joint_mod = abs(int(diff.iloc[-1] / 0.075)) + 1
+    if last_joint_mod > data_csv.shape[0] / 2:
+        last_joint_mod = data_csv.shape[0] / 2
     if last_joint_mod > config.reference_count:
         for i in range (last_joint_mod):
             if first:

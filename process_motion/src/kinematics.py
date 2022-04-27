@@ -252,7 +252,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
                 if abs(goal_vector[j]) < 0.45:
                     goal_vector[j] = 0
                 else:
-                    goal_vector[j] = 10 * (goal_vector[j] - 0.45 * np.sign(goal_vector[j]))   
+                    goal_vector[j] = 10 * (goal_vector[j] - 0.45 * np.sign(goal_vector[j]))
         elif joint_limits in [0, 3]:
             goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints))
             if set_last:
@@ -296,8 +296,9 @@ def servo_all_methods(dh_params, goal_pos, joint_states, set_last = 0):
     """
     Runs servo_calcs with 3 different methods (if necessary) to avoid joint limits
     """
-    servo_joints = servo_calcs(dh_params, goal_pos, joint_states, set_last=set_last)[0]
-    servo_list = process_result(servo_joints)
+    j_s = joint_states.copy()
+    servo_joints = servo_calcs(dh_params, goal_pos, j_s, set_last=set_last)[0]
+    process_result(servo_joints)
 
     # Check joint limits and re-run test, if they were exceeded
     if servo_joints != None and not check_joint_limits(servo_joints)[0]:
@@ -312,27 +313,24 @@ def servo_all_methods(dh_params, goal_pos, joint_states, set_last = 0):
                 print('[WARNING] Goal vector failed, last attempt with enforcing + goal vector')
                 servo_joints = servo_calcs(dh_params, goal_pos, joint_states, set_last=set_last,
                                               max_iter = 250, joint_limits=3)[0]
-        servo_list = process_result(servo_joints)
+        process_result(servo_joints)
         if servo_joints != None and not check_joint_limits(servo_joints)[0]:
             print('[ERROR] New configuration was also not successful')
             servo_joints = None
+    if servo_joints is not None:
+        print(f'[INFO] Found valid solution: {servo_joints}')
     return servo_joints
 
 def process_result(joint_result):
     """
     Checks for joint values that can be wrapped around
     """
-    if joint_result == None:
-        processed_js = [np.nan] * 7
-    else:
+    if joint_result is not None:
         for i in range(len(joint_result.tolist())):
             if abs(joint_result[i]) > sp.pi:
                 print('Joint value exceeds limit, but can be made valid')
                 cycles = int(abs(joint_result[i] / (2 * sp.pi)))
                 joint_result[i] -= np.sign(joint_result[i]) * 2 * sp.pi.evalf() * (cycles + 1)
-        processed_js = [round(item, 4) for sublist in joint_result.tolist() for item in sublist]
-
-    return processed_js
 
 def calc_transform(dh_params):
     """
