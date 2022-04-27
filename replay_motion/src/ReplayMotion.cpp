@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include "replay_motion/ReplayMotion.hpp"
+#include "replay_motion/Instrumentor.h"
 #include <sys/mman.h>
 #include <string>
 #include <memory>
@@ -35,6 +35,8 @@ ReplayMotion::ReplayMotion(
   const rclcpp::NodeOptions & options)
 : rclcpp::Node(node_name, options)
 {
+  Instrumentor::Instance().beginSession("Replay_motion");
+  PROFILE_FUNC();
   set_rate_request_ = std::make_shared<
     kuka_sunrise_interfaces::srv::SetDouble::Request>();
 
@@ -144,8 +146,14 @@ ReplayMotion::ReplayMotion(
   }
 }
 
+ReplayMotion::~ReplayMotion()
+{
+	Instrumentor::Instance().endSession();
+}
+
 void ReplayMotion::timerCallback()
 {
+  PROFILE_FUNC();
   if (!valid_) {
     RCLCPP_ERROR(
       this->get_logger(), "LBR state is not 4, stopping playback");
@@ -202,6 +210,7 @@ bool ReplayMotion::processCSV(
   std::vector<double> & joint_angles,
   bool last_only)
 {
+  PROFILE_FUNC();
   // Getting the next line of a csv based on the parameters
   if (delay_count_ && !last_only) {
     delay_count_--;
@@ -310,6 +319,7 @@ bool ReplayMotion::processCSV(
 rcl_interfaces::msg::SetParametersResult ReplayMotion::onParamChange(
   const std::vector<rclcpp::Parameter> & parameters)
 {
+  PROFILE_FUNC();
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
   if (reached_start_) {
@@ -338,6 +348,7 @@ rcl_interfaces::msg::SetParametersResult ReplayMotion::onParamChange(
 
 bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
 {
+  PROFILE_FUNC();
   if (param.get_type() !=
     rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE_ARRAY)
   {
@@ -385,6 +396,7 @@ bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
 
 bool ReplayMotion::setControllerRate(const double & rate) const
 {
+  PROFILE_FUNC();
   set_rate_request_->data = rate;
   auto future_result = set_rate_client_->async_send_request(set_rate_request_);
   auto future_status = kuka_sunrise::wait_for_result(
@@ -408,6 +420,7 @@ bool ReplayMotion::setControllerRate(const double & rate) const
 
 bool ReplayMotion::onDelaysChangeRequest(const rclcpp::Parameter & param)
 {
+  PROFILE_FUNC();
   if (param.get_type() !=
     rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE_ARRAY)
   {
@@ -441,6 +454,7 @@ bool ReplayMotion::onDelaysChangeRequest(const rclcpp::Parameter & param)
 
 bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
 {
+  PROFILE_FUNC();
   if (param.get_type() !=
     rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
   {
@@ -475,6 +489,7 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
 
 bool ReplayMotion::checkJointLimits(const std::vector<double> & angles) const
 {
+  PROFILE_FUNC();
   for (int i = 0; i < 7; i++) {
     if (angles[i] < lower_limits_rad_[i] || angles[i] > upper_limits_rad_[i]) {
       return false;

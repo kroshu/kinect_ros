@@ -41,6 +41,7 @@ class ReplayMotion : public rclcpp::Node
 {
 public:
   ReplayMotion(const std::string & node_name, const rclcpp::NodeOptions & options);
+  ~ReplayMotion();
 
 private:
   bool reached_start_ = false;
