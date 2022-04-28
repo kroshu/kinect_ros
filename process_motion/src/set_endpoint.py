@@ -66,7 +66,7 @@ def set_endpoint(data_csv, config, first):
 
     last_joint_mod = abs(int(diff.iloc[-1] / 0.075)) + 1
     if last_joint_mod > data_csv.shape[0] / 2:
-        last_joint_mod = data_csv.shape[0] / 2
+        last_joint_mod = int(data_csv.shape[0] / 2)
     if last_joint_mod > config.reference_count:
         for i in range (last_joint_mod):
             if first:
