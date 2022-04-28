@@ -303,15 +303,15 @@ def servo_all_methods(dh_params, goal_pos, joint_states, set_last = 0):
     # Check joint limits and re-run test, if they were exceeded
     if servo_joints != None and not check_joint_limits(servo_joints)[0]:
         print('[WARNING] Exceeded limits, runnning with new configuration')        
-        servo_joints = servo_calcs(dh_params, goal_pos, joint_states, set_last=set_last,
+        servo_joints = servo_calcs(dh_params, goal_pos, j_s, set_last=set_last,
                                       max_iter = 250, joint_limits=1)[0]
         if servo_joints == None:
             print('[WARNING] Enforcing joint limits also failed, retrying with goal vector')
-            servo_joints = servo_calcs(dh_params, goal_pos, joint_states, set_last=set_last,
+            servo_joints = servo_calcs(dh_params, goal_pos, j_s, set_last=set_last,
                                           max_iter = 250, joint_limits=2)[0]
             if servo_joints == None:
                 print('[WARNING] Goal vector failed, last attempt with enforcing + goal vector')
-                servo_joints = servo_calcs(dh_params, goal_pos, joint_states, set_last=set_last,
+                servo_joints = servo_calcs(dh_params, goal_pos, j_s, set_last=set_last,
                                               max_iter = 250, joint_limits=3)[0]
         process_result(servo_joints)
         if servo_joints != None and not check_joint_limits(servo_joints)[0]:
