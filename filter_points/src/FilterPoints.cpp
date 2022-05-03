@@ -144,7 +144,7 @@ void FilterPoints::markersReceivedCallback(
       auto delta = PoseDiff(rel_pose_.position, prev_rel_pose_.position);
       float delta_len = sqrt(
         delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
-      if (delta_len > 0.05) {
+      if (delta_len > 0.01) {
         goal_pos_publisher_->publish(rel_pose_);
         prev_rel_pose_ = rel_pose_;
         RCLCPP_DEBUG(get_logger(), "x: %f", rel_pose_.position.x);
