@@ -39,7 +39,6 @@ if len(moving_avg_files) > 0:
         print(f'There is only {file_count} files to process, terminating')
         sys.exit()
 
-
     moving_avg_params = ''
     for f in moving_avg_files:
         moving_avg_params += ' ' + str(f)
@@ -68,4 +67,3 @@ if len(set_endpoint_files) > 0:
 
     # run script
     os.system(SRC_DIR + '/set_endpoint.py' + set_endpoint_params)
-

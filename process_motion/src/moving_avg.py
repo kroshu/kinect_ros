@@ -226,22 +226,24 @@ def filter_butter(data, window):
                                axis=1, ignore_index=True)
     return moving_avg
 
+
 def merge_data(forw_result, reversed_result):
     result = pd.DataFrame()
-    half = (int) (forw_result.shape[0] / 2)
+    half = (int)(forw_result.shape[0] / 2)
     for i in range(len(forw_result.columns)):
         if forw_result.shape[0] % 2 == 0:
             result[i] = pd.concat([forw_result[i].iloc[:half], reversed_result[i].iloc[-half:]],
-                              ignore_index=True)
+                                  ignore_index=True)
         else:
-            result[i] = pd.concat([forw_result[i].iloc[:half + 1], reversed_result[i].iloc[-half:]],
-                              ignore_index=True)
+            result[i] = pd.concat([forw_result[i].iloc[:half + 1],
+                                  reversed_result[i].iloc[-half:]], ignore_index=True)
         if forw_result.shape[0] > 20:
             for j in range(10):
                 index = half - 5 + j
                 result[i].iloc[index] = (forw_result[i].iloc[index] * (1 - (j + 1) / 10) +
                                          reversed_result[i].iloc[index] * ((j + 1) / 10))
     return result
+
 
 def smooth_graph(data, config):
     """
