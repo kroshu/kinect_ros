@@ -1,20 +1,17 @@
 #!/usr/bin/python3
 
-"""
-Kinematics calculations of a robot
+"""Run tests to determine effectiveness of kinematics calculations."""
 
-    Denavit-Hartenberg parameters:
-"""
-
+import csv
 import os
 from pathlib import Path
-import csv
-import yaml
 import random
-import sympy as sp
-import pandas as pd
 
 import kinematics as kn
+import pandas as pd
+import sympy as sp
+import yaml
+
 
 # should equal the $tries argument of kinematic.adjust_goal function (odd integer or 0)
 SET_LAST = 11
@@ -23,12 +20,12 @@ CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
                            'config', 'LBR_iiwa_DH.yaml')
 
 CSV_PATH = os.path.join(str(Path(__file__).parent.parent.parent.parent.parent.absolute()),
-                           'data', 'set_test_constants', 'failed.csv')
+                        'data', 'set_test_constants', '500_tests.csv')
 
-with open(CONFIG_PATH, 'r', encoding="utf-8") as config_file:
+with open(CONFIG_PATH, 'r', encoding='utf-8') as config_file:
     config_dict = yaml.safe_load(config_file)
 
-DH_PARAMS = config_dict["DH_params"]
+DH_PARAMS = config_dict['DH_params']
 
 joint_count = 0
 
@@ -37,7 +34,7 @@ while f'joint_{joint_count + 1}' in DH_PARAMS.keys():
 print(f'Number of joints: {joint_count}')
 
 # Print headers
-with open('test.csv', 'w', encoding="utf-8") as file:
+with open('test.csv', 'w', encoding='utf-8') as file:
     writer = csv.writer(file)
     original = [f'joint{i + 1}' for i in range(joint_count)]
     modified = [f'j{i + 1}_mod' for i in range(joint_count)]
@@ -86,31 +83,31 @@ while i < 500:
     servo_list = kn.process_result(servo_joints)
 
     # Check joint limits and re-run test, if they were exceeded
-    if servo_joints != None and not kn.check_joint_limits(servo_joints)[0]:
+    if servo_joints is not None and not kn.check_joint_limits(servo_joints)[0]:
         success = [-1]
         print('Exceeded limits, runnning with new configuration')
-        with open('test.csv', 'a', encoding="utf-8") as file:
+        with open('test.csv', 'a', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(js_orig + joint_states + servo_list
                             + success)
         success = []
         servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
-                                      max_iter = 250, joint_limits=1)[0]
-        if servo_joints == None:
+                                      max_iter=250, joint_limits=1)[0]
+        if servo_joints is None:
             print('Enforcing joint limits also failed, retrying with goal vector')
             servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
-                                          max_iter = 250, joint_limits=2)[0]
-            if servo_joints == None:
+                                          max_iter=250, joint_limits=2)[0]
+            if servo_joints is None:
                 print('Goal vector failed, last attempt with enforcing + goal vector')
                 servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST,
-                                              max_iter = 250, joint_limits=3)[0]
+                                              max_iter=250, joint_limits=3)[0]
         servo_list = kn.process_result(servo_joints)
-        if servo_joints != None and not kn.check_joint_limits(servo_joints)[0]:
+        if servo_joints is not None and not kn.check_joint_limits(servo_joints)[0]:
             print('New configuration was also not successful')
             success = [0]
             servo_joints = None
 
-    if servo_joints != None:
+    if servo_joints is not None:
         success = [1]
         diff_mod = sp.Matrix(joint_states).transpose() - servo_joints
 
@@ -127,6 +124,6 @@ while i < 500:
             distances.append(1)
     else:
         success = [0]
-    with open('test.csv', 'a', encoding="utf-8") as file:
+    with open('test.csv', 'a', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow(js_orig + joint_states + servo_list + success + distances)
