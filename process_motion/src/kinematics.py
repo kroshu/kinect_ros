@@ -331,6 +331,9 @@ def process_result(joint_result):
                 print('Joint value exceeds limit, but can be made valid')
                 cycles = int(abs(joint_result[i] / (2 * sp.pi)))
                 joint_result[i] -= np.sign(joint_result[i]) * 2 * sp.pi.evalf() * (cycles + 1)
+        processed_js = [round(item, 4) for sublist in joint_result.tolist() for item in sublist]
+        return processed_js
+    return None
 
 def calc_transform(dh_params):
     """
