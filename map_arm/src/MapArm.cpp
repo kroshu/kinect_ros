@@ -291,7 +291,7 @@ void MapArm::markersReceivedCallback(
     double delta_len = sqrt(
       delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 
-    if (delta_len > 0.01) {
+    if (delta_len > 0.0001) {
       prev_rel_pos_ = rel_pos;
       RCLCPP_DEBUG(get_logger(), "Reference published");
       reference_publisher_->publish(reference);
@@ -356,7 +356,7 @@ void MapArm::writeBagFile(const sensor_msgs::msg::JointState & reference)
 void MapArm::manageProcessingCallback(
   std_msgs::msg::Bool::SharedPtr valid)
 {
-  if (valid) {
+  if (valid->data) {
     valid_ = true;
     RCLCPP_INFO(
       this->get_logger(),
