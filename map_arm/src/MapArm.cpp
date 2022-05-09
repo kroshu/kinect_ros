@@ -27,9 +27,9 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
 : rclcpp::Node(node_name, options)
 {
   marker_listener_ = this->create_subscription<
-    visualization_msgs::msg::MarkerArray>(
+    camera_msgs::msg::MarkerArray>(
     "body_tracking_data", qos_,
-    [this](visualization_msgs::msg::MarkerArray::SharedPtr msg) {
+    [this](camera_msgs::msg::MarkerArray::SharedPtr msg) {
       this->markersReceivedCallback(msg);
     });
   reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
@@ -147,8 +147,21 @@ bool MapArm::onMovingAvgChangeRequest(const rclcpp::Parameter & param)
   return true;
 }
 
+bool MapArm::FindMarker(const camera_msgs::msg::Marker & marker, BODY_TRACKING_JOINTS joint)
+{
+  int joint_id = marker.marker.id % 100;
+  if (joint_id == static_cast<int>(joint)) {
+    // currently K4ABT_JOINT_CONFIDENCE_MEDIUM = 2 is the maximum confidence for a joint
+    if (marker.joint_confidence < 2) {
+      RCLCPP_WARN(get_logger(), "Confidence is low for joint %s", JointToString(joint));
+    }
+    return true;
+  }
+  return false;
+}
+
 void MapArm::markersReceivedCallback(
-  visualization_msgs::msg::MarkerArray::SharedPtr msg)
+  camera_msgs::msg::MarkerArray::SharedPtr msg)
 {
   motion_started_ = true;
   if (!valid_) {
@@ -164,51 +177,39 @@ void MapArm::markersReceivedCallback(
   auto handtip_it =
     std::find_if(
     msg->markers.begin(), msg->markers.end(),
-    [](const visualization_msgs::msg::Marker & marker) {
-      int joint_id = marker.id % 100;
-      return joint_id ==
-      static_cast<int>(BODY_TRACKING_JOINTS::HANDTIP_RIGHT);
+    [this](const camera_msgs::msg::Marker & marker) {
+      return FindMarker(marker, BODY_TRACKING_JOINTS::HANDTIP_RIGHT);
     });
 
   auto shoulder_it =
     std::find_if(
     msg->markers.begin(), msg->markers.end(),
-    [](const visualization_msgs::msg::Marker & marker) {
-      int joint_id = marker.id % 100;
-      return joint_id ==
-      static_cast<int>(BODY_TRACKING_JOINTS::SHOULDER_RIGHT);
+    [this](const camera_msgs::msg::Marker & marker) {
+      return FindMarker(marker, BODY_TRACKING_JOINTS::SHOULDER_RIGHT);
     });
 
   auto elbow_it = std::find_if(
     msg->markers.begin(), msg->markers.end(),
-    [](const visualization_msgs::msg::Marker & marker) {
-      int joint_id = marker.id % 100;
-      return joint_id ==
-      static_cast<int>(BODY_TRACKING_JOINTS::ELBOW_RIGHT);
+    [this](const camera_msgs::msg::Marker & marker) {
+      return FindMarker(marker, BODY_TRACKING_JOINTS::ELBOW_RIGHT);
     });
 
   auto wrist_it = std::find_if(
     msg->markers.begin(), msg->markers.end(),
-    [](const visualization_msgs::msg::Marker & marker) {
-      int joint_id = marker.id % 100;
-      return joint_id ==
-      static_cast<int>(BODY_TRACKING_JOINTS::WRIST_RIGHT);
+    [this](const camera_msgs::msg::Marker & marker) {
+      return FindMarker(marker, BODY_TRACKING_JOINTS::WRIST_RIGHT);
     });
 
   auto hand_it = std::find_if(
     msg->markers.begin(), msg->markers.end(),
-    [](const visualization_msgs::msg::Marker & marker) {
-      int joint_id = marker.id % 100;
-      return joint_id ==
-      static_cast<int>(BODY_TRACKING_JOINTS::HAND_RIGHT);
+    [this](const camera_msgs::msg::Marker & marker) {
+      return FindMarker(marker, BODY_TRACKING_JOINTS::HAND_RIGHT);
     });
 
   auto left_hand_it = std::find_if(
     msg->markers.begin(), msg->markers.end(),
-    [](const visualization_msgs::msg::Marker & marker) {
-      int joint_id = marker.id % 100;
-      return joint_id ==
-      static_cast<int>(BODY_TRACKING_JOINTS::HANDTIP_LEFT);
+    [this](const camera_msgs::msg::Marker & marker) {
+      return FindMarker(marker, BODY_TRACKING_JOINTS::HANDTIP_LEFT);
     });
 
   if (handtip_it != msg->markers.end() &&
@@ -221,21 +222,21 @@ void MapArm::markersReceivedCallback(
     std::vector<double> joint_state(7);
 
     auto elbow_rel_pos = poseDiff(
-      elbow_it->pose.position,
-      shoulder_it->pose.position);
+      elbow_it->marker.pose.position,
+      shoulder_it->marker.pose.position);
 
     calculateJoints12(joint_state, elbow_rel_pos);
 
     auto wrist_rel_pos = poseDiff(
-      wrist_it->pose.position,
-      elbow_it->pose.position);
+      wrist_it->marker.pose.position,
+      elbow_it->marker.pose.position);
 
     calculateJoints34(joint_state, wrist_rel_pos);
 
     // Calculate joints 5 and 6
     auto handtip_rel_pos = poseDiff(
-      handtip_it->pose.position,
-      wrist_it->pose.position);
+      handtip_it->marker.pose.position,
+      wrist_it->marker.pose.position);
 
     calculateJoints56(joint_state, handtip_rel_pos);
 
@@ -245,8 +246,8 @@ void MapArm::markersReceivedCallback(
 
     if (left_hand_it != msg->markers.end()) {
       auto left_hand = poseDiff(
-        left_hand_it->pose.position,
-        shoulder_it->pose.position);
+        left_hand_it->marker.pose.position,
+        shoulder_it->marker.pose.position);
       // Start recording if left hand is raised vertically left
       if (left_hand.y > 0.9 && !record_) {
         RCLCPP_INFO(get_logger(), "Starting recording");
@@ -285,8 +286,8 @@ void MapArm::markersReceivedCallback(
 
     // If cartesian distance is small, do not send new commands
     auto rel_pos = poseDiff(
-      handtip_it->pose.position,
-      shoulder_it->pose.position);
+      handtip_it->marker.pose.position,
+      shoulder_it->marker.pose.position);
     auto delta = poseDiff(rel_pos, prev_rel_pos_);
     double delta_len = sqrt(
       delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);

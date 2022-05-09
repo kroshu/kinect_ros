@@ -31,7 +31,7 @@
 #include "rosbag2_cpp/writers/sequential_writer.hpp"
 #include "rosbag2_storage/serialized_bag_message.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
-#include "visualization_msgs/msg/marker_array.hpp"
+#include "camera_msgs/msg/marker_array.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -65,11 +65,12 @@ private:
   rcl_interfaces::msg::SetParametersResult onParamChange(
     const std::vector<rclcpp::Parameter> & parameters);
   bool onMovingAvgChangeRequest(const rclcpp::Parameter & param);
+  bool FindMarker(const camera_msgs::msg::Marker & marker, BODY_TRACKING_JOINTS joint);
   void writeBagFile(const sensor_msgs::msg::JointState & reference);
   void manageProcessingCallback(
     std_msgs::msg::Bool::SharedPtr valid);
   void markersReceivedCallback(
-    visualization_msgs::msg::MarkerArray::SharedPtr msg);
+    camera_msgs::msg::MarkerArray::SharedPtr msg);
   void calculateJoints12(
     std::vector<double> & joint_state,
     const geometry_msgs::msg::Point & elbow_rel_pos);
@@ -86,7 +87,7 @@ private:
 
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr manage_processing_sub_;
-  rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr marker_listener_;
+  rclcpp::Subscription<camera_msgs::msg::MarkerArray>::SharedPtr marker_listener_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
 
   std_srvs::srv::Trigger::Request::SharedPtr trigger_request_ =

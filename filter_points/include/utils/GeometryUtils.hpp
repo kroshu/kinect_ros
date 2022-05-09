@@ -22,6 +22,57 @@
 #include "rclcpp/rclcpp.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
+#include <boost/preprocessor.hpp>
+
+#define PROCESS_ONE_ELEMENT(r, unused, idx, elem) \
+  BOOST_PP_COMMA_IF(idx) BOOST_PP_STRINGIZE(elem)
+
+#define ENUM_MACRO(name, ...) \
+  enum class name { __VA_ARGS__ }; \
+  const char * name ## Strings[] = {BOOST_PP_SEQ_FOR_EACH_I( \
+      PROCESS_ONE_ELEMENT, % %, BOOST_PP_VARIADIC_TO_SEQ( \
+        __VA_ARGS__))}; \
+  template<typename T> \
+  constexpr const char * name ## ToString(T value) {return name ## Strings[static_cast<int>(value)]; \
+  }
+
+ENUM_MACRO(
+  Joint,
+  PELVIS,
+  SPINE_NAVEL,
+  SPINE_CHEST,
+  NECK,
+  CLAVICLE_LEFT,
+  SHOULDER_LEFT,
+  ELBOW_LEFT,
+  WRIST_LEFT,
+  HAND_LEFT,
+  HANDTIP_LEFT,
+  THUMB_LEFT,
+  CLAVICLE_RIGHT,
+  SHOULDER_RIGHT,
+  ELBOW_RIGHT,
+  WRIST_RIGHT,
+  HAND_RIGHT,
+  HANDTIP_RIGHT,
+  THUMB_RIGHT,
+  HIP_LEFT,
+  KNEE_LEFT,
+  ANKLE_LEFT,
+  FOOT_LEFT,
+  HIP_RIGHT,
+  KNEE_RIGHT,
+  ANKLE_RIGHT,
+  FOOT_RIGHT,
+  HEAD,
+  NOSE,
+  EYE_LEFT,
+  EAR_LEFT,
+  EYE_RIGHT,
+  EAR_RIGHT,
+  COUNT)
+
+
 namespace filter_points
 {
 /*

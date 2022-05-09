@@ -58,7 +58,7 @@ def generate_launch_description():
         )
 
     joint_controller = launch_ros.actions.LifecycleNode(
-        package='robot_control', executable='joint_controller', output='both',
+        package='robot_control', executable='rate_scaled_controller', output='both',
         arguments=['--ros-args', '--log-level', 'info'],
         name='joint_controller', remappings=[('measured_joint_state', 'lbr_joint_state'),
                                              ('joint_command', 'lbr_joint_command')]

@@ -148,7 +148,7 @@ ReplayMotion::ReplayMotion(
 
 ReplayMotion::~ReplayMotion()
 {
-	Instrumentor::Instance().endSession();
+  Instrumentor::Instance().endSession();
 }
 
 void ReplayMotion::timerCallback()
