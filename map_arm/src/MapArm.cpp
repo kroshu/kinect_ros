@@ -149,7 +149,7 @@ bool MapArm::onMovingAvgChangeRequest(const rclcpp::Parameter & param)
 
 bool MapArm::FindMarker(const camera_msgs::msg::Marker & marker, BODY_TRACKING_JOINTS joint)
 {
-  int joint_id = marker.marker.id % 100;
+  int joint_id = marker.id % 100;
   if (joint_id == static_cast<int>(joint)) {
     // currently K4ABT_JOINT_CONFIDENCE_MEDIUM = 2 is the maximum confidence for a joint
     if (marker.joint_confidence < 2) {
@@ -222,21 +222,21 @@ void MapArm::markersReceivedCallback(
     std::vector<double> joint_state(7);
 
     auto elbow_rel_pos = poseDiff(
-      elbow_it->marker.pose.position,
-      shoulder_it->marker.pose.position);
+      elbow_it->pose.position,
+      shoulder_it->pose.position);
 
     calculateJoints12(joint_state, elbow_rel_pos);
 
     auto wrist_rel_pos = poseDiff(
-      wrist_it->marker.pose.position,
-      elbow_it->marker.pose.position);
+      wrist_it->pose.position,
+      elbow_it->pose.position);
 
     calculateJoints34(joint_state, wrist_rel_pos);
 
     // Calculate joints 5 and 6
     auto handtip_rel_pos = poseDiff(
-      handtip_it->marker.pose.position,
-      wrist_it->marker.pose.position);
+      handtip_it->pose.position,
+      wrist_it->pose.position);
 
     calculateJoints56(joint_state, handtip_rel_pos);
 
@@ -246,8 +246,8 @@ void MapArm::markersReceivedCallback(
 
     if (left_hand_it != msg->markers.end()) {
       auto left_hand = poseDiff(
-        left_hand_it->marker.pose.position,
-        shoulder_it->marker.pose.position);
+        left_hand_it->pose.position,
+        shoulder_it->pose.position);
       // Start recording if left hand is raised vertically left
       if (left_hand.y > 0.9 && !record_) {
         RCLCPP_INFO(get_logger(), "Starting recording");
@@ -286,8 +286,8 @@ void MapArm::markersReceivedCallback(
 
     // If cartesian distance is small, do not send new commands
     auto rel_pos = poseDiff(
-      handtip_it->marker.pose.position,
-      shoulder_it->marker.pose.position);
+      handtip_it->pose.position,
+      shoulder_it->pose.position);
     auto delta = poseDiff(rel_pos, prev_rel_pos_);
     double delta_len = sqrt(
       delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
