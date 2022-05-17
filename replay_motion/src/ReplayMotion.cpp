@@ -37,8 +37,14 @@ ReplayMotion::ReplayMotion(
 {
   Instrumentor::Instance().beginSession("Replay_motion");
   PROFILE_FUNC();
+
   set_rate_request_ = std::make_shared<
-    kuka_sunrise_interfaces::srv::SetDouble::Request>();
+    rcl_interfaces::srv::SetParameters::Request>();
+
+  get_rate_request_ = std::make_shared<
+    rcl_interfaces::srv::GetParameters::Request>();
+  get_rate_request_->names.resize(1);
+  get_rate_request_->names[0] = "reference_rate";
 
   auto manage_proc_callback = [this](
     std_msgs::msg::Bool::SharedPtr valid) {
@@ -92,16 +98,24 @@ ReplayMotion::ReplayMotion(
 
   cbg_ = this->create_callback_group(
     rclcpp::CallbackGroupType::MutuallyExclusive);
-  set_rate_client_ = this->create_client<kuka_sunrise_interfaces::srv::SetDouble>(
-    "joint_controller/set_rate", ::rmw_qos_profile_default, cbg_);
 
-  this->declare_parameter(
-    "rates", std::vector<double>(csv_path_.size(), 1.0));
+  set_rate_client_ = this->create_client<rcl_interfaces::srv::SetParameters>(
+    "joint_controller/set_parameters", ::rmw_qos_profile_default, cbg_);
+
+  controller_rate_.name = "reference_rate";
+  set_rate_request_->parameters.resize(1);
+  set_rate_request_->parameters[0] = controller_rate_;
+
+  get_rate_client_ = this->create_client<rcl_interfaces::srv::GetParameters>(
+    "joint_controller/get_parameters", ::rmw_qos_profile_default, cbg_);
 
   param_callback_ = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
       return this->onParamChange(parameters);
     });
+
+  this->declare_parameter(
+    "rates", std::vector<double>(csv_path_.size(), 10.0));
 
   // Time to wait before part of motion in seconds
   this->declare_parameter(
@@ -121,17 +135,13 @@ ReplayMotion::ReplayMotion(
       measured_joint_state_ = state;
     });
 
-  // rates parameter is valid only after starting actual motion
-  // using default until then
-  int duration_us = ReplayMotion::default_period_us_;
+  // Start timer with default for one tick
+  auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / start_rate_);
   timer_ = this->create_wall_timer(
     std::chrono::microseconds(duration_us),
     [this]() {
       this->timerCallback();
     });
-  RCLCPP_INFO(
-    this->get_logger(), "Starting publishing with a rate of %lf Hz",
-    static_cast<double>(ReplayMotion::us_in_sec_ / duration_us));
 
   if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
     RCLCPP_ERROR(get_logger(), "mlockall error");
@@ -160,6 +170,36 @@ void ReplayMotion::timerCallback()
     rclcpp::shutdown();
     return;
   }
+  // Sync rate parameter with joint_controller
+  // valid until start position is reached
+  if (first_flag_) {
+    first_flag_ = false;
+    auto future_result = get_rate_client_->async_send_request(get_rate_request_);
+    auto future_status = kuka_sunrise::wait_for_result(
+      future_result,
+      std::chrono::milliseconds(100));
+    if (future_status != std::future_status::ready) {
+      RCLCPP_ERROR(
+        get_logger(),
+        "Future status not ready, could not get rate of joint controller");
+      rclcpp::shutdown();
+      return;
+    }
+    double start_rate = future_result.get()->values[0].double_value;
+    if (start_rate_ != start_rate) {
+      start_rate_ = start_rate;
+      timer_->cancel();
+      auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / start_rate_);
+      timer_ = this->create_wall_timer(
+        std::chrono::microseconds(duration_us),
+        [this]() {
+          this->timerCallback();
+        });
+    }
+    RCLCPP_INFO(
+      this->get_logger(), "Starting publishing with a rate of %lf Hz",
+      start_rate_);
+  }
   if (repeat_count_ < 0) {repeat_count_ = -1;}
   if (!reached_start_) {
     double dist_sum = 0;
@@ -178,13 +218,21 @@ void ReplayMotion::timerCallback()
     // (dist > 0) - (dist < 0) is sgn function
     to_start.position = joint_error;
     if (dist_sum < 0.001) {
-      if (!onRatesChangeRequest(this->get_parameter("rates"))) {
-        RCLCPP_ERROR(
-          this->get_logger(),
-          "Could not sync with joint controller, stopping node");
+      if (!setControllerRate(rates_[0])) {
         rclcpp::shutdown();
         return;
       }
+      auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / rates_[0]);
+      if (rates_[0] != start_rate_) {
+        timer_->cancel();
+        timer_ = this->create_wall_timer(
+          std::chrono::microseconds(duration_us),
+          [this]() {
+            this->timerCallback();
+          });
+      }
+      delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
+
       reached_start_ = true;
       RCLCPP_INFO(
         this->get_logger(),
@@ -228,17 +276,19 @@ bool ReplayMotion::processCSV(
     if (csv_count_ != csv_path_.size()) {
       RCLCPP_INFO(this->get_logger(), "End of file reached, switching to next one");
       file_change = true;
-      timer_->cancel();
-      auto duration_us = static_cast<int>(ReplayMotion::default_period_us_ / rates_[csv_count_]);
-      timer_ = this->create_wall_timer(
-        std::chrono::microseconds(duration_us),
-        [this]() {
-          this->timerCallback();
-        });
-      delay_count_ = static_cast<int>(delays_[csv_count_] * ReplayMotion::us_in_sec_ / duration_us);
-      if (!setControllerRate(rates_[csv_count_])) {
-        return false;
+      auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / rates_[csv_count_]);
+      if (rates_[csv_count_] != rates_[csv_count_ - 1]) {
+        timer_->cancel();
+        timer_ = this->create_wall_timer(
+          std::chrono::microseconds(duration_us),
+          [this]() {
+            this->timerCallback();
+          });
+        if (!setControllerRate(rates_[csv_count_])) {
+          return false;
+        }
       }
+      delay_count_ = static_cast<int>(delays_[csv_count_] * ReplayMotion::us_in_sec_ / duration_us);
       csv_in_.close();
       csv_in_.open(csv_path_[csv_count_]);
       if (csv_in_ >> std::ws && !std::getline(csv_in_, line)) {
@@ -251,17 +301,19 @@ bool ReplayMotion::processCSV(
     } else if (repeat_count_) {
       RCLCPP_INFO(this->get_logger(), "End of motion reached, repeating");
       RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
-      timer_->cancel();
-      auto duration_us = static_cast<int>(ReplayMotion::default_period_us_ / rates_[0]);
-      timer_ = this->create_wall_timer(
-        std::chrono::microseconds(duration_us),
-        [this]() {
-          this->timerCallback();
-        });
-      delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
-      if (!setControllerRate(rates_[0])) {
-        return false;
+      auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / rates_[0]);
+      if (rates_[csv_count_ - 1] != rates_[0]) {
+        timer_->cancel();
+        timer_ = this->create_wall_timer(
+          std::chrono::microseconds(duration_us),
+          [this]() {
+            this->timerCallback();
+          });
+        if (!setControllerRate(rates_[0])) {
+          return false;
+        }
       }
+      delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
       repeat_count_--;
       csv_in_.close();
       csv_in_.open(csv_path_[0]);
@@ -376,28 +428,14 @@ bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
       return false;
     }
   }
-  if (!setControllerRate(param.as_double_array()[0])) {
-    return false;
-  }
-
   rates_ = param.as_double_array();
-  if (rates_[0] != 1) {
-    timer_->cancel();
-    auto duration_us = static_cast<int>(ReplayMotion::default_period_us_ / rates_[0]);
-    delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
-    timer_ = this->create_wall_timer(
-      std::chrono::microseconds(duration_us),
-      [this]() {
-        this->timerCallback();
-      });
-  }
   return true;
 }
 
 bool ReplayMotion::setControllerRate(const double & rate) const
 {
   PROFILE_FUNC();
-  set_rate_request_->data = rate;
+  set_rate_request_->parameters[0].value = rclcpp::ParameterValue(rate).to_value_msg();
   auto future_result = set_rate_client_->async_send_request(set_rate_request_);
   auto future_status = kuka_sunrise::wait_for_result(
     future_result,
@@ -408,7 +446,7 @@ bool ReplayMotion::setControllerRate(const double & rate) const
       "Future status not ready, could not set rate of joint controller");
     return false;
   }
-  if (!future_result.get()->success) {
+  if (!future_result.get()->results[0].successful) {
     RCLCPP_ERROR(
       get_logger(),
       "Future result not success, could not set rate of joint controller");

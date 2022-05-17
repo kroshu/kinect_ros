@@ -24,7 +24,6 @@
 #include "rcpputils/filesystem_helper.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/bool.hpp"
-#include "kuka_sunrise_interfaces/srv/set_double.hpp"
 #include "kuka_sunrise/internal/service_tools.hpp"
 
 
@@ -60,10 +59,14 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr manage_processing_sub_;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr measured_joint_state_listener_;
-  rclcpp::Client<kuka_sunrise_interfaces::srv::SetDouble>::SharedPtr set_rate_client_;
+  rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_rate_client_;
+  rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_rate_client_;
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
-  kuka_sunrise_interfaces::srv::SetDouble::Request::SharedPtr set_rate_request_;
+
+  rcl_interfaces::srv::SetParameters::Request::SharedPtr set_rate_request_;
+  rcl_interfaces::srv::GetParameters::Request::SharedPtr get_rate_request_;
+  rcl_interfaces::msg::Parameter controller_rate_;
 
   void timerCallback();
   bool onRatesChangeRequest(const rclcpp::Parameter & param);
@@ -76,8 +79,10 @@ private:
     const std::vector<rclcpp::Parameter> & parameters);
 
   static constexpr int us_in_sec_ = 1000000;
-  // default frequency for "rate = 1" is 8Hz (125 ms)
-  static constexpr int default_period_us_ = 125000;
+
+  // Define start rate only for the first tick, because client request gets in deadlock in constructor
+  double start_rate_ = 10;
+  bool first_flag_ = true;
 };
 }  // namespace replay_motion
 
