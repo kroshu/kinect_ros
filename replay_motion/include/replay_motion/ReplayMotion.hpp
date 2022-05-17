@@ -79,6 +79,7 @@ private:
   bool processCSV(std::vector<double> & joint_angles, bool last_only = false);
   bool onRepeatCountChangeRequest(const int & repeat_count);
   bool setControllerRate(const double & rate) const;
+  bool changeRate(const double & rate, const double & prev_rate);
   bool checkJointLimits(const std::vector<double> & angles) const;
 
   static constexpr int us_in_sec_ = 1000000;

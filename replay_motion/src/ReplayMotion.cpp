@@ -28,6 +28,11 @@ std::string getLastLine(std::ifstream & in)
   return line;
 }
 
+int sgn(const double & number)
+{
+  return static_cast<int>(number > 0) - static_cast<int>(number < 0);
+}
+
 namespace replay_motion
 {
 ReplayMotion::ReplayMotion(
@@ -217,6 +222,7 @@ void ReplayMotion::timerCallback()
       return;
     }
     double start_rate = future_result.get()->values[0].double_value;
+
     if (start_rate_ != start_rate) {
       start_rate_ = start_rate;
       timer_->cancel();
@@ -232,44 +238,33 @@ void ReplayMotion::timerCallback()
       start_rate_);
   }
   if (repeat_count_ < 0) {repeat_count_ = -1;}
+
+  // Jog to starting position slowly
   if (!reached_start_) {
     double dist_sum = 0;
-    sensor_msgs::msg::JointState to_start;
-    std::vector<double> joint_error;
+    sensor_msgs::msg::JointState jog_to_start;
+    std::vector<double> jog_position;
     for (int i = 0; i < 7; i++) {
       double dist = reference_->position[i] -
         measured_joint_state_->position[i];
       dist_sum += pow(dist, 2);
-      joint_error.push_back(
+      jog_position.push_back(
         measured_joint_state_->position[i] +
-        (static_cast<int>(dist > 0) - static_cast<int>(dist < 0)) * std::min(
-          0.03, abs(
-            dist)));
+        sgn(dist) * std::min(0.03, abs(dist)));
     }
-    // (dist > 0) - (dist < 0) is sgn function
-    to_start.position = joint_error;
+    jog_to_start.position = jog_position;
     if (dist_sum < 0.001) {
-      if (!setControllerRate(rates_[0])) {
+      if (!changeRate(rates_[0], start_rate_)) {
         rclcpp::shutdown();
         return;
       }
-      auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / rates_[0]);
-      if (rates_[0] != start_rate_) {
-        timer_->cancel();
-        timer_ = this->create_wall_timer(
-          std::chrono::microseconds(duration_us),
-          [this]() {
-            this->timerCallback();
-          });
-      }
-      delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
 
       reached_start_ = true;
       RCLCPP_INFO(
         this->get_logger(),
         "Robot reached start position, starting the actual motion");
     } else {
-      reference_publisher_->publish(to_start);
+      reference_publisher_->publish(jog_to_start);
     }
   } else {
     reference_->header.stamp = this->now();
@@ -283,6 +278,24 @@ void ReplayMotion::timerCallback()
     }
     reference_->position = joint_angles;
   }
+}
+
+bool ReplayMotion::changeRate(const double & rate, const double & prev_rate)
+{
+  auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / rate);
+  if (rate != prev_rate) {
+    if (!setControllerRate(rate)) {
+      return false;
+    }
+    timer_->cancel();
+    timer_ = this->create_wall_timer(
+      std::chrono::microseconds(duration_us),
+      [this]() {
+        this->timerCallback();
+      });
+  }
+  delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
+  return true;
 }
 
 bool ReplayMotion::processCSV(
@@ -304,22 +317,15 @@ bool ReplayMotion::processCSV(
     csv_last.open(csv_path_.back());
     line = getLastLine(csv_last);
   } else if (!std::getline(csv_in_, line)) {
+    // End of file, but files remaining
     if (csv_count_ != csv_path_.size()) {
       RCLCPP_INFO(this->get_logger(), "End of file reached, switching to next one");
       file_change = true;
-      auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / rates_[csv_count_]);
-      if (rates_[csv_count_] != rates_[csv_count_ - 1]) {
-        timer_->cancel();
-        timer_ = this->create_wall_timer(
-          std::chrono::microseconds(duration_us),
-          [this]() {
-            this->timerCallback();
-          });
-        if (!setControllerRate(rates_[csv_count_])) {
-          return false;
-        }
+
+      if (!changeRate(rates_[csv_count_], rates_[csv_count_ - 1])) {
+        return false;
       }
-      delay_count_ = static_cast<int>(delays_[csv_count_] * ReplayMotion::us_in_sec_ / duration_us);
+
       csv_in_.close();
       csv_in_.open(csv_path_[csv_count_]);
       if (csv_in_ >> std::ws && !std::getline(csv_in_, line)) {
@@ -329,22 +335,14 @@ bool ReplayMotion::processCSV(
         return false;
       }
       csv_count_++;
-    } else if (repeat_count_) {
+    } else if (repeat_count_) {  // End of file, repeating
       RCLCPP_INFO(this->get_logger(), "End of motion reached, repeating");
       RCLCPP_INFO(this->get_logger(), "Repeats remaining: %i", repeat_count_);
-      auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / rates_[0]);
-      if (rates_[csv_count_ - 1] != rates_[0]) {
-        timer_->cancel();
-        timer_ = this->create_wall_timer(
-          std::chrono::microseconds(duration_us),
-          [this]() {
-            this->timerCallback();
-          });
-        if (!setControllerRate(rates_[0])) {
-          return false;
-        }
+
+      if (!changeRate(rates_[0], rates_[csv_count_ - 1])) {
+        return false;
       }
-      delay_count_ = static_cast<int>(delays_[0] * ReplayMotion::us_in_sec_ / duration_us);
+
       repeat_count_--;
       csv_in_.close();
       csv_in_.open(csv_path_[0]);
@@ -381,6 +379,7 @@ bool ReplayMotion::processCSV(
       "The number of joint values is not 7");
     return false;
   }
+  // Check distance to beginning of next file
   if (file_change) {
     double dist_max = 0;
     for (int i = 0; i < 7; i++) {
