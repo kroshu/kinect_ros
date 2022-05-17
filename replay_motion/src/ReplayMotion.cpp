@@ -38,52 +38,20 @@ ReplayMotion::ReplayMotion(
   Instrumentor::Instance().beginSession("Replay_motion");
   PROFILE_FUNC();
 
-  set_rate_request_ = std::make_shared<
-    rcl_interfaces::srv::SetParameters::Request>();
-
-  get_rate_request_ = std::make_shared<
-    rcl_interfaces::srv::GetParameters::Request>();
-  get_rate_request_->names.resize(1);
-  get_rate_request_->names[0] = "reference_rate";
-
-  auto manage_proc_callback = [this](
-    std_msgs::msg::Bool::SharedPtr valid) {
-      valid_ = valid->data;
-    };
-  manage_processing_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "system_manager/manage", 1, manage_proc_callback);
-
-  int i = 0;
-  while (rcpputils::fs::exists(
-      rcpputils::fs::path(
-        "replay/data/motion" + std::to_string(
-          i + 1) + ".csv")))
-  {
-    csv_path_.push_back("replay/data/motion" + std::to_string(i + 1) + ".csv");
-    i++;
-  }
-  if (!csv_path_.size()) {
-    RCLCPP_ERROR(this->get_logger(), "File does not exist, stopping node");
+  if (!checkFiles()) {
     rclcpp::shutdown();
     return;
   }
-  RCLCPP_INFO(this->get_logger(), "Found %i '.csv' files to replay", i);
-  csv_in_.open(csv_path_[0]);
-  if (csv_in_ >> std::ws && csv_in_.peek() == std::ifstream::traits_type::eof()) {
-    RCLCPP_ERROR(this->get_logger(), "File is empty, stopping node");
-    rclcpp::shutdown();
-    return;
-  }
+
+  initCommunications();
+
+  // Calculate and check initial joint values
   std::vector<double> joint_angles;
-
   if (!processCSV(joint_angles)) {
     RCLCPP_INFO(this->get_logger(), "Stopping node");
     rclcpp::shutdown();
     return;
   }
-
-  reference_ = std::make_shared<sensor_msgs::msg::JointState>();
-  reference_->position.resize(7);
   reference_->position = joint_angles;
   if (!measured_joint_state_) {
     measured_joint_state_ = reference_;
@@ -96,54 +64,9 @@ ReplayMotion::ReplayMotion(
     return;
   }
 
-  cbg_ = this->create_callback_group(
-    rclcpp::CallbackGroupType::MutuallyExclusive);
+  addParameters();
 
-  set_rate_client_ = this->create_client<rcl_interfaces::srv::SetParameters>(
-    "joint_controller/set_parameters", ::rmw_qos_profile_default, cbg_);
-
-  controller_rate_.name = "reference_rate";
-  set_rate_request_->parameters.resize(1);
-  set_rate_request_->parameters[0] = controller_rate_;
-
-  get_rate_client_ = this->create_client<rcl_interfaces::srv::GetParameters>(
-    "joint_controller/get_parameters", ::rmw_qos_profile_default, cbg_);
-
-  param_callback_ = this->add_on_set_parameters_callback(
-    [this](const std::vector<rclcpp::Parameter> & parameters) {
-	  return getParameterHandler().onParamChange(parameters);
-    });
-
-  registerParameter<std::vector<double>>(
-    "rates", std::vector<double>(csv_path_.size(), 10.0),
-	[this](const std::vector<double> & rates) {
-      return this->onRatesChangeRequest(rates);
-    });
-
-  // Time to wait before part of motion in seconds
-  registerParameter<std::vector<double>>(
-    "delays", std::vector<double>(csv_path_.size(), 0.0),
-	[this](const std::vector<double> & delays) {
-      return this->onDelaysChangeRequest(delays);
-    });
-
-  registerParameter<int>(
-    "repeat_count", repeat_count_,
-	[this](const int & repeats) {
-      return this->onRepeatCountChangeRequest(repeats);
-    });
-
-  reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
-    "reference_joint_state", qos_);
-
-  measured_joint_state_listener_ = this->create_subscription<
-    sensor_msgs::msg::JointState>(
-    "lbr_joint_state", qos_,
-    [this](sensor_msgs::msg::JointState::SharedPtr state) {
-      measured_joint_state_ = state;
-    });
-
-  // Start timer with default for one tick
+  // Start timer with default rate for one tick
   auto duration_us = static_cast<int>(ReplayMotion::us_in_sec_ / start_rate_);
   timer_ = this->create_wall_timer(
     std::chrono::microseconds(duration_us),
@@ -151,11 +74,11 @@ ReplayMotion::ReplayMotion(
       this->timerCallback();
     });
 
+  // Enforce real-time capability
   if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
     RCLCPP_ERROR(get_logger(), "mlockall error");
     RCLCPP_ERROR(get_logger(), strerror(errno));
   }
-
   struct sched_param param;
   param.sched_priority = 90;
   if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
@@ -168,6 +91,106 @@ ReplayMotion::~ReplayMotion()
 {
   Instrumentor::Instance().endSession();
 }
+
+void ReplayMotion::addParameters()
+{
+  param_callback_ = this->add_on_set_parameters_callback(
+    [this](const std::vector<rclcpp::Parameter> & parameters) {
+      if (!reached_start_) {
+        return getParameterHandler().onParamChange(parameters);
+      } else {
+        rcl_interfaces::msg::SetParametersResult result;
+        result.successful = false;
+        RCLCPP_ERROR(
+          this->get_logger(),
+          "The parameters can't be changed if motion has already started");
+        return result;
+      }
+    });
+
+  registerParameter<std::vector<double>>(
+    "rates", std::vector<double>(csv_path_.size(), 10.0),
+    [this](const std::vector<double> & rates) {
+      return this->onRatesChangeRequest(rates);
+    });
+
+  // Time to wait before part of motion in seconds
+  registerParameter<std::vector<double>>(
+    "delays", std::vector<double>(csv_path_.size(), 0.0),
+    [this](const std::vector<double> & delays) {
+      return this->onDelaysChangeRequest(delays);
+    });
+
+  registerParameter<int>(
+    "repeat_count", repeat_count_,
+    [this](const int & repeats) {
+      return this->onRepeatCountChangeRequest(repeats);
+    });
+}
+
+bool ReplayMotion::checkFiles()
+{
+  int i = 0;
+  while (rcpputils::fs::exists(
+      rcpputils::fs::path(
+        "replay/data/motion" + std::to_string(
+          i + 1) + ".csv")))
+  {
+    csv_path_.push_back("replay/data/motion" + std::to_string(i + 1) + ".csv");
+    i++;
+  }
+  if (!csv_path_.size()) {
+    RCLCPP_ERROR(this->get_logger(), "File does not exist, stopping node");
+    return false;
+  }
+  RCLCPP_INFO(this->get_logger(), "Found %i '.csv' files to replay", i);
+  csv_in_.open(csv_path_[0]);
+  if (csv_in_ >> std::ws && csv_in_.peek() == std::ifstream::traits_type::eof()) {
+    RCLCPP_ERROR(this->get_logger(), "File is empty, stopping node");
+    return false;
+  }
+  return true;
+}
+
+void ReplayMotion::initCommunications()
+{
+  cbg_ = this->create_callback_group(
+    rclcpp::CallbackGroupType::MutuallyExclusive);
+
+  set_rate_request_ = std::make_shared<
+    rcl_interfaces::srv::SetParameters::Request>();
+  set_rate_request_->parameters.resize(1);
+  controller_rate_.name = "reference_rate";
+  set_rate_request_->parameters[0] = controller_rate_;
+  set_rate_client_ = this->create_client<rcl_interfaces::srv::SetParameters>(
+    "joint_controller/set_parameters", ::rmw_qos_profile_default, cbg_);
+
+  get_rate_request_ = std::make_shared<
+    rcl_interfaces::srv::GetParameters::Request>();
+  get_rate_request_->names.resize(1);
+  get_rate_request_->names[0] = "reference_rate";
+  get_rate_client_ = this->create_client<rcl_interfaces::srv::GetParameters>(
+    "joint_controller/get_parameters", ::rmw_qos_profile_default, cbg_);
+
+  manage_processing_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "system_manager/manage", 1, [this](
+      std_msgs::msg::Bool::SharedPtr valid) {
+      valid_ = valid->data;
+    });
+
+  measured_joint_state_listener_ = this->create_subscription<
+    sensor_msgs::msg::JointState>(
+    "lbr_joint_state", qos_,
+    [this](sensor_msgs::msg::JointState::SharedPtr state) {
+      measured_joint_state_ = state;
+    });
+
+  reference_ = std::make_shared<sensor_msgs::msg::JointState>();
+  reference_->position.resize(7);
+  reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
+    "reference_joint_state", qos_);
+}
+
 
 void ReplayMotion::timerCallback()
 {

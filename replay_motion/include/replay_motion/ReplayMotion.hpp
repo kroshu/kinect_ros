@@ -71,6 +71,9 @@ private:
   rcl_interfaces::msg::Parameter controller_rate_;
 
   void timerCallback();
+  bool checkFiles();
+  void addParameters();
+  void initCommunications();
   bool onRatesChangeRequest(const std::vector<double> & rates);
   bool onDelaysChangeRequest(const std::vector<double> & delays);
   bool processCSV(std::vector<double> & joint_angles, bool last_only = false);
