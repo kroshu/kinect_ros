@@ -20,11 +20,12 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(kuka_sunrise REQUIRED)
+find_package(kroshu_ros2_core REQUIRED)
 
 include_directories(include)
 
 add_executable(replay_motion src/ReplayMotion.cpp)
-ament_target_dependencies(replay_motion rclcpp sensor_msgs)
+ament_target_dependencies(replay_motion rclcpp sensor_msgs kroshu_ros2_core)
 target_link_libraries(replay_motion kuka_sunrise::internal)
 
 install(TARGETS replay_motion

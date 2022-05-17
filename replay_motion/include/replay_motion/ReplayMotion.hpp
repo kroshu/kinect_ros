@@ -26,6 +26,8 @@
 #include "std_msgs/msg/bool.hpp"
 #include "kuka_sunrise/internal/service_tools.hpp"
 
+#include "kroshu_ros2_core/ROS2BaseNode.hpp"
+
 
 namespace replay_motion
 {
@@ -36,7 +38,7 @@ const std::vector<double> upper_limits_rad_ = std::vector<double>(
   {2.67, 1.88,
     2.67, 1.88, 2.67, 1.88, 2.74});
 
-class ReplayMotion : public rclcpp::Node
+class ReplayMotion : public kroshu_ros2_core::ROS2BaseNode
 {
 public:
   ReplayMotion(const std::string & node_name, const rclcpp::NodeOptions & options);
@@ -69,14 +71,12 @@ private:
   rcl_interfaces::msg::Parameter controller_rate_;
 
   void timerCallback();
-  bool onRatesChangeRequest(const rclcpp::Parameter & param);
-  bool onDelaysChangeRequest(const rclcpp::Parameter & param);
+  bool onRatesChangeRequest(const std::vector<double> & rates);
+  bool onDelaysChangeRequest(const std::vector<double> & delays);
   bool processCSV(std::vector<double> & joint_angles, bool last_only = false);
-  bool onRepeatCountChangeRequest(const rclcpp::Parameter & param);
+  bool onRepeatCountChangeRequest(const int & repeat_count);
   bool setControllerRate(const double & rate) const;
   bool checkJointLimits(const std::vector<double> & angles) const;
-  rcl_interfaces::msg::SetParametersResult onParamChange(
-    const std::vector<rclcpp::Parameter> & parameters);
 
   static constexpr int us_in_sec_ = 1000000;
 

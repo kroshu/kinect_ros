@@ -33,7 +33,7 @@ namespace replay_motion
 ReplayMotion::ReplayMotion(
   const std::string & node_name,
   const rclcpp::NodeOptions & options)
-: rclcpp::Node(node_name, options)
+: kroshu_ros2_core::ROS2BaseNode(node_name, options)
 {
   Instrumentor::Instance().beginSession("Replay_motion");
   PROFILE_FUNC();
@@ -111,19 +111,27 @@ ReplayMotion::ReplayMotion(
 
   param_callback_ = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
-      return this->onParamChange(parameters);
+	  return getParameterHandler().onParamChange(parameters);
     });
 
-  this->declare_parameter(
-    "rates", std::vector<double>(csv_path_.size(), 10.0));
+  registerParameter<std::vector<double>>(
+    "rates", std::vector<double>(csv_path_.size(), 10.0),
+	[this](const std::vector<double> & rates) {
+      return this->onRatesChangeRequest(rates);
+    });
 
   // Time to wait before part of motion in seconds
-  this->declare_parameter(
-    "delays", std::vector<double>(csv_path_.size(), 0.0));
+  registerParameter<std::vector<double>>(
+    "delays", std::vector<double>(csv_path_.size(), 0.0),
+	[this](const std::vector<double> & delays) {
+      return this->onDelaysChangeRequest(delays);
+    });
 
-  this->declare_parameter(
-    "repeat_count",
-    rclcpp::ParameterValue(repeat_count_));
+  registerParameter<int>(
+    "repeat_count", repeat_count_,
+	[this](const int & repeats) {
+      return this->onRepeatCountChangeRequest(repeats);
+    });
 
   reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
     "reference_joint_state", qos_);
@@ -368,67 +376,24 @@ bool ReplayMotion::processCSV(
   return true;
 }
 
-rcl_interfaces::msg::SetParametersResult ReplayMotion::onParamChange(
-  const std::vector<rclcpp::Parameter> & parameters)
+bool ReplayMotion::onRatesChangeRequest(const std::vector<double> & rates)
 {
   PROFILE_FUNC();
-  rcl_interfaces::msg::SetParametersResult result;
-  result.successful = true;
-  if (reached_start_) {
+
+  if (rates.size() != csv_path_.size()) {
     RCLCPP_ERROR(
       this->get_logger(),
-      "The parameters can't be changed if motion has already started");
-    result.successful = false;
-    return result;
-  }
-  for (const rclcpp::Parameter & param : parameters) {
-    if (param.get_name() == "rates") {
-      result.successful = onRatesChangeRequest(param);
-    } else if (param.get_name() == "repeat_count") {
-      result.successful = onRepeatCountChangeRequest(param);
-    } else if (param.get_name() == "delays") {
-      result.successful = onDelaysChangeRequest(param);
-    } else {
-      RCLCPP_ERROR(
-        this->get_logger(), "Invalid parameter name %s",
-        param.get_name().c_str());
-      result.successful = false;
-    }
-  }
-  return result;
-}
-
-bool ReplayMotion::onRatesChangeRequest(const rclcpp::Parameter & param)
-{
-  PROFILE_FUNC();
-  if (param.get_type() !=
-    rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE_ARRAY)
-  {
-    RCLCPP_ERROR(
-      this->get_logger(), "Invalid parameter type for parameter %s",
-      param.get_name().c_str());
+      "Invalid parameter array length for parameter rates");
     return false;
   }
 
-  if (param.as_double_array().size() != csv_path_.size()) {
-    RCLCPP_ERROR(
-      this->get_logger(),
-      "Invalid parameter array length for parameter %s",
-      param.get_name().c_str());
-    return false;
-  }
-
-  for (auto & rate : param.as_double_array()) {
+  for (auto & rate : rates) {
     if (rate < 0.2 || rate > 5) {
-      RCLCPP_ERROR(
-        this->get_logger(),
-        "Invalid parameter value for parameter %s",
-        param.get_name().c_str());
       RCLCPP_ERROR(this->get_logger(), "0.2 < rate < 5 must be true");
       return false;
     }
   }
-  rates_ = param.as_double_array();
+  rates_ = rates;
   return true;
 }
 
@@ -456,52 +421,31 @@ bool ReplayMotion::setControllerRate(const double & rate) const
 }
 
 
-bool ReplayMotion::onDelaysChangeRequest(const rclcpp::Parameter & param)
+bool ReplayMotion::onDelaysChangeRequest(const std::vector<double> & delays)
 {
   PROFILE_FUNC();
-  if (param.get_type() !=
-    rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE_ARRAY)
-  {
-    RCLCPP_ERROR(
-      this->get_logger(), "Invalid parameter type for parameter %s",
-      param.get_name().c_str());
-    return false;
-  }
 
-  if (param.as_double_array().size() != csv_path_.size()) {
+  if (delays.size() != csv_path_.size()) {
     RCLCPP_ERROR(
       this->get_logger(),
-      "Invalid parameter array length for parameter %s",
-      param.get_name().c_str());
+      "Invalid parameter array length for parameter delays");
     return false;
   }
 
-  for (auto delay : param.as_double_array()) {
+  for (auto delay : delays) {
     if (delay < 0) {
-      RCLCPP_ERROR(
-        this->get_logger(),
-        "Invalid parameter value for parameter %s",
-        param.get_name().c_str());
       RCLCPP_ERROR(this->get_logger(), "Delay must be positive");
       return false;
     }
   }
-  delays_ = param.as_double_array();
+  delays_ = delays;
   return true;
 }
 
-bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
+bool ReplayMotion::onRepeatCountChangeRequest(const int & repeat_count)
 {
   PROFILE_FUNC();
-  if (param.get_type() !=
-    rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
-  {
-    RCLCPP_ERROR(
-      this->get_logger(), "Invalid parameter type for parameter %s",
-      param.get_name().c_str());
-    return false;
-  }
-  if (param.as_int()) {
+  if (repeat_count) {
     std::vector<double> joint_angles;
     if (!processCSV(joint_angles, true)) {
       return false;
@@ -521,7 +465,7 @@ bool ReplayMotion::onRepeatCountChangeRequest(const rclcpp::Parameter & param)
       return false;
     }
   }
-  repeat_count_ = static_cast<int>(param.as_int());
+  repeat_count_ = repeat_count;
   return true;
 }
 
