@@ -19,10 +19,9 @@
 #include <vector>
 #include <string>
 
+#include "boost/preprocessor.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
-
-#include <boost/preprocessor.hpp>
 
 #define PROCESS_ONE_ELEMENT(r, unused, idx, elem) \
   BOOST_PP_COMMA_IF(idx) BOOST_PP_STRINGIZE(elem)
@@ -33,8 +32,8 @@
       PROCESS_ONE_ELEMENT, % %, BOOST_PP_VARIADIC_TO_SEQ( \
         __VA_ARGS__))}; \
   template<typename T> \
-  constexpr const char * name ## ToString(T value) {return name ## Strings[static_cast<int>(value)]; \
-  }
+  constexpr const char * name ## ToString(T value) \
+  {return name ## Strings[static_cast<int>(value)];}
 
 ENUM_MACRO(
   Joint,

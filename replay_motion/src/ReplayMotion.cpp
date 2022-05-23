@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "replay_motion/ReplayMotion.hpp"
-#include "replay_motion/Instrumentor.h"
 #include <sys/mman.h>
 #include <string>
 #include <memory>
@@ -40,9 +39,6 @@ ReplayMotion::ReplayMotion(
   const rclcpp::NodeOptions & options)
 : kroshu_ros2_core::ROS2BaseNode(node_name, options)
 {
-  Instrumentor::Instance().beginSession("Replay_motion");
-  PROFILE_FUNC();
-
   if (!checkFiles()) {
     rclcpp::shutdown();
     return;
@@ -90,11 +86,6 @@ ReplayMotion::ReplayMotion(
     RCLCPP_ERROR(get_logger(), "setscheduler error");
     RCLCPP_ERROR(get_logger(), strerror(errno));
   }
-}
-
-ReplayMotion::~ReplayMotion()
-{
-  Instrumentor::Instance().endSession();
 }
 
 void ReplayMotion::addParameters()
@@ -199,7 +190,6 @@ void ReplayMotion::initCommunications()
 
 void ReplayMotion::timerCallback()
 {
-  PROFILE_FUNC();
   if (!valid_) {
     RCLCPP_ERROR(
       this->get_logger(), "LBR state is not 4, stopping playback");
@@ -298,7 +288,6 @@ bool ReplayMotion::processCSV(
   std::vector<double> & joint_angles,
   bool last_only)
 {
-  PROFILE_FUNC();
   // Getting the next line of a csv based on the parameters
   if (delay_count_ && !last_only) {
     delay_count_--;
@@ -396,8 +385,6 @@ bool ReplayMotion::processCSV(
 
 bool ReplayMotion::onRatesChangeRequest(const std::vector<double> & rates)
 {
-  PROFILE_FUNC();
-
   if (rates.size() != csv_path_.size()) {
     RCLCPP_ERROR(
       this->get_logger(),
@@ -417,7 +404,6 @@ bool ReplayMotion::onRatesChangeRequest(const std::vector<double> & rates)
 
 bool ReplayMotion::setControllerRate(const double & rate) const
 {
-  PROFILE_FUNC();
   set_rate_request_->parameters[0].value = rclcpp::ParameterValue(rate).to_value_msg();
   auto response = kuka_sunrise::sendRequest<rcl_interfaces::srv::SetParameters::Response>(
     set_rate_client_, set_rate_request_, 0);
@@ -431,8 +417,6 @@ bool ReplayMotion::setControllerRate(const double & rate) const
 
 bool ReplayMotion::onDelaysChangeRequest(const std::vector<double> & delays)
 {
-  PROFILE_FUNC();
-
   if (delays.size() != csv_path_.size()) {
     RCLCPP_ERROR(
       this->get_logger(),
@@ -452,7 +436,6 @@ bool ReplayMotion::onDelaysChangeRequest(const std::vector<double> & delays)
 
 bool ReplayMotion::onRepeatCountChangeRequest(const int & repeat_count)
 {
-  PROFILE_FUNC();
   if (repeat_count) {
     std::vector<double> joint_angles;
     if (!processCSV(joint_angles, true)) {
@@ -479,7 +462,6 @@ bool ReplayMotion::onRepeatCountChangeRequest(const int & repeat_count)
 
 bool ReplayMotion::checkJointLimits(const std::vector<double> & angles) const
 {
-  PROFILE_FUNC();
   for (int i = 0; i < 7; i++) {
     if (angles[i] < lower_limits_rad_[i] || angles[i] > upper_limits_rad_[i]) {
       return false;

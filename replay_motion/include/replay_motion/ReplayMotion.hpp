@@ -42,7 +42,6 @@ class ReplayMotion : public kroshu_ros2_core::ROS2BaseNode
 {
 public:
   ReplayMotion(const std::string & node_name, const rclcpp::NodeOptions & options);
-  ~ReplayMotion();
 
 private:
   bool reached_start_ = false;
@@ -84,7 +83,7 @@ private:
 
   static constexpr int us_in_sec_ = 1000000;
 
-  // Define start rate only for the first tick, because client request gets in deadlock in constructor
+  // Define start rate for the first tick, because client request gets in deadlock in constructor
   double start_rate_ = 10;
   bool first_flag_ = true;
 };
