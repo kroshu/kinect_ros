@@ -2,9 +2,9 @@
 # kinect_ros (Arm tracking with Azure Kinect and LBR iiwa)
 ## The Azure Kinect driver node
 
-Travis CI | SonarCloud
+GitHub CI | SonarCloud
 ------------| ---------------
-[![Build Status](https://api.travis-ci.com/kroshu/kinect_ros.svg?branch=main)](https://app.travis-ci.com/github/kroshu/kinect_ros) | [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kroshu_kinect_ros&metric=alert_status)](https://sonarcloud.io/dashboard?id=kroshu_kinect_ros)
+[![Build Status](https://github.com/kroshu/kinect_ros/workflows/CI/badge.svg?branch=master)](https://github.com/kroshu/kinect_ros/actions) | [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kroshu_kinect_ros&metric=alert_status)](https://sonarcloud.io/dashboard?id=kroshu_kinect_ros)
 
 ### Prerequsites:
 - Windows computer with strong graphics card, Linux computer for the other nodes
