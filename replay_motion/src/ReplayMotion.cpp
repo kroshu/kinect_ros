@@ -210,19 +210,14 @@ void ReplayMotion::timerCallback()
   // valid until start position is reached
   if (first_flag_) {
     first_flag_ = false;
-    auto future_result = get_rate_client_->async_send_request(get_rate_request_);
-    auto future_status = kuka_sunrise::wait_for_result(
-      future_result,
-      std::chrono::milliseconds(100));
-    if (future_status != std::future_status::ready) {
-      RCLCPP_ERROR(
-        get_logger(),
-        "Future status not ready, could not get rate of joint controller");
+    auto response = kuka_sunrise::sendRequest<rcl_interfaces::srv::GetParameters::Response>(
+      get_rate_client_, get_rate_request_, 0);
+    if (!response) {
+      RCLCPP_ERROR(get_logger(), "Could not get rate of joint controller");
       rclcpp::shutdown();
       return;
     }
-    double start_rate = future_result.get()->values[0].double_value;
-
+    double start_rate = response->values[0].double_value;
     if (start_rate_ != start_rate) {
       start_rate_ = start_rate;
       timer_->cancel();
@@ -237,6 +232,7 @@ void ReplayMotion::timerCallback()
       this->get_logger(), "Starting publishing with a rate of %lf Hz",
       start_rate_);
   }
+
   if (repeat_count_ < 0) {repeat_count_ = -1;}
 
   // Jog to starting position slowly
@@ -423,20 +419,10 @@ bool ReplayMotion::setControllerRate(const double & rate) const
 {
   PROFILE_FUNC();
   set_rate_request_->parameters[0].value = rclcpp::ParameterValue(rate).to_value_msg();
-  auto future_result = set_rate_client_->async_send_request(set_rate_request_);
-  auto future_status = kuka_sunrise::wait_for_result(
-    future_result,
-    std::chrono::milliseconds(100));
-  if (future_status != std::future_status::ready) {
-    RCLCPP_ERROR(
-      get_logger(),
-      "Future status not ready, could not set rate of joint controller");
-    return false;
-  }
-  if (!future_result.get()->results[0].successful) {
-    RCLCPP_ERROR(
-      get_logger(),
-      "Future result not success, could not set rate of joint controller");
+  auto response = kuka_sunrise::sendRequest<rcl_interfaces::srv::SetParameters::Response>(
+    set_rate_client_, set_rate_request_, 0);
+  if (!response || !response->results[0].successful) {
+    RCLCPP_ERROR(get_logger(), "Could not set rate of joint controller");
     return false;
   }
   return true;

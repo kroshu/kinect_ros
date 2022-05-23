@@ -256,20 +256,12 @@ void MapArm::markersReceivedCallback(
       // Stop if left hand is raised upwards
       if (left_hand.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
-        auto future_result = change_state_client_->async_send_request(
-          trigger_request_);
-        auto future_status = kuka_sunrise::wait_for_result(
-          future_result,
-          std::chrono::milliseconds(500));
-        if (future_status != std::future_status::ready) {
-          RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
-          rclcpp::shutdown();
-          return;
-        }
-        if (!future_result.get()->success) {
-          RCLCPP_ERROR(
-            get_logger(),
-            "Future result not success, stopping node");
+
+        auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
+          change_state_client_, trigger_request_, 0, 500);
+
+        if (!response || !response->success) {
+          RCLCPP_ERROR(get_logger(), "Could not deactivate driver, stopping node");
           rclcpp::shutdown();
           return;
         }
@@ -306,18 +298,12 @@ void MapArm::markersReceivedCallback(
     RCLCPP_WARN(
       get_logger(),
       "Missing joint from hand, stopping motion");
-    auto future_result = change_state_client_->async_send_request(
-      trigger_request_);
-    auto future_status = kuka_sunrise::wait_for_result(
-      future_result,
-      std::chrono::milliseconds(500));
-    if (future_status != std::future_status::ready) {
-      RCLCPP_ERROR(get_logger(), "Future status not ready, stopping node");
-      rclcpp::shutdown();
-      return;
-    }
-    if (!future_result.get()->success) {
-      RCLCPP_ERROR(get_logger(), "Future result not success, stopping node");
+
+    auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
+      change_state_client_, trigger_request_, 0, 500);
+
+    if (!response || !response->success) {
+      RCLCPP_ERROR(get_logger(), "Could not deactivate driver, stopping node");
       rclcpp::shutdown();
       return;
     }
