@@ -53,9 +53,10 @@ ReplayMotion::ReplayMotion(
     rclcpp::shutdown();
     return;
   }
-  reference_->position = joint_angles;
+  reference_.position = joint_angles;
   if (!measured_joint_state_) {
-    measured_joint_state_ = reference_;
+    measured_joint_state_ = std::make_shared<sensor_msgs::msg::JointState>();
+    measured_joint_state_->position = reference_.position;
   }
   if (!checkJointLimits(joint_angles)) {
     RCLCPP_ERROR(
@@ -181,8 +182,7 @@ void ReplayMotion::initCommunications()
       measured_joint_state_ = state;
     });
 
-  reference_ = std::make_shared<sensor_msgs::msg::JointState>();
-  reference_->position.resize(7);
+  reference_.position.resize(7);
   reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
     "reference_joint_state", qos_);
 }
@@ -231,7 +231,7 @@ void ReplayMotion::timerCallback()
     sensor_msgs::msg::JointState jog_to_start;
     std::vector<double> jog_position;
     for (int i = 0; i < 7; i++) {
-      double dist = reference_->position[i] -
+      double dist = reference_.position[i] -
         measured_joint_state_->position[i];
       dist_sum += pow(dist, 2);
       jog_position.push_back(
@@ -253,8 +253,8 @@ void ReplayMotion::timerCallback()
       reference_publisher_->publish(jog_to_start);
     }
   } else {
-    reference_->header.stamp = this->now();
-    reference_publisher_->publish(*reference_);
+    reference_.header.stamp = this->now();
+    reference_publisher_->publish(reference_);
 
     std::vector<double> joint_angles;
     if (!processCSV(joint_angles)) {
@@ -262,7 +262,7 @@ void ReplayMotion::timerCallback()
       rclcpp::shutdown();
       return;
     }
-    reference_->position = joint_angles;
+    reference_.position = joint_angles;
   }
 }
 
@@ -291,7 +291,7 @@ bool ReplayMotion::processCSV(
   // Getting the next line of a csv based on the parameters
   if (delay_count_ && !last_only) {
     delay_count_--;
-    joint_angles = reference_->position;
+    joint_angles = reference_.position;
     return true;
   }
   bool file_change = false;
@@ -368,7 +368,7 @@ bool ReplayMotion::processCSV(
   if (file_change) {
     double dist_max = 0;
     for (int i = 0; i < 7; i++) {
-      double dist = reference_->position[i] -
+      double dist = reference_.position[i] -
         joint_angles[i];
       if (dist_max < abs(dist)) {dist_max = abs(dist);}
     }
@@ -443,7 +443,7 @@ bool ReplayMotion::onRepeatCountChangeRequest(const int & repeat_count)
     }
     double dist_max = 0;
     for (int i = 0; i < 7; i++) {
-      double dist = reference_->position[i] -
+      double dist = reference_.position[i] -
         joint_angles[i];
       if (dist_max < abs(dist)) {dist_max = abs(dist);}
     }

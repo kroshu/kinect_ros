@@ -55,7 +55,7 @@ private:
   std::ifstream csv_in_;
   rclcpp::CallbackGroup::SharedPtr cbg_;
   rclcpp::TimerBase::SharedPtr timer_;
-  sensor_msgs::msg::JointState::SharedPtr reference_;
+  sensor_msgs::msg::JointState reference_;
   sensor_msgs::msg::JointState::SharedPtr measured_joint_state_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr manage_processing_sub_;
