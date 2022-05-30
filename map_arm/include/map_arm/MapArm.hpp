@@ -38,7 +38,7 @@
 #include "std_msgs/msg/bool.hpp"
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
-#include "utils/GeometryUtils.hpp"
+#include "utils/CameraUtils.hpp"
 #include "kuka_sunrise/internal/service_tools.hpp"
 
 

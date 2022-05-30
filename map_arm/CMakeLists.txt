@@ -21,7 +21,6 @@ find_package(rclcpp REQUIRED)
 find_package(camera_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
-find_package(filter_points REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(kuka_sunrise REQUIRED)
@@ -30,7 +29,7 @@ include_directories(include)
 
 add_executable(map_arm src/MapArm.cpp)
 ament_target_dependencies(map_arm rclcpp camera_msgs std_srvs sensor_msgs rosbag2_cpp)
-target_link_libraries(map_arm filter_points::utils Eigen3::Eigen kuka_sunrise::internal)
+target_link_libraries(map_arm Eigen3::Eigen kuka_sunrise::internal)
 
 install(TARGETS map_arm
   DESTINATION lib/${PROJECT_NAME})

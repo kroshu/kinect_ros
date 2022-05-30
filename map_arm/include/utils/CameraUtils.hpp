@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef UTILS__GEOMETRYUTILS_HPP_
-#define UTILS__GEOMETRYUTILS_HPP_
+#ifndef UTILS__CAMERAUTILS_HPP_
+#define UTILS__CAMERAUTILS_HPP_
 
 #include <cinttypes>
 #include <vector>
 #include <string>
+#include <memory>
 
 #include "Eigen/Geometry"
 
@@ -28,16 +29,19 @@
 #define PROCESS_ONE_ELEMENT(r, unused, idx, elem) \
   BOOST_PP_COMMA_IF(idx) BOOST_PP_STRINGIZE(elem)
 
-#define ENUM_MACRO(name, ...) \
+#define ENUM_MACRO(name, function, ...) \
   enum class name { __VA_ARGS__ }; \
   const char * name ## Strings[] = {BOOST_PP_SEQ_FOR_EACH_I( \
       PROCESS_ONE_ELEMENT, % %, BOOST_PP_VARIADIC_TO_SEQ( \
         __VA_ARGS__))}; \
   template<typename T> \
-  constexpr const char * name ## ToString(T value) \
+  constexpr const char * function ## ToString(T value) \
   {return name ## Strings[static_cast<int>(value)];}
 
+namespace filter_points
+{
 ENUM_MACRO(
+  BODY_TRACKING_JOINTS,
   Joint,
   PELVIS,
   SPINE_NAVEL,
@@ -73,9 +77,6 @@ ENUM_MACRO(
   EAR_RIGHT,
   COUNT)
 
-
-namespace filter_points
-{
 geometry_msgs::msg::Vector3 operator+(
   const geometry_msgs::msg::Vector3 & v1,
   const geometry_msgs::msg::Vector3 & v2)
@@ -143,80 +144,25 @@ geometry_msgs::msg::Point operator-(
 /*
  *  @brief  Transforms the given point from the coordinate system of the camera
  *          to that of the robot
+ *  @param x_angle and y_angle are the required angle corrections in the IMU coordinate system
  */
-void cameraToRobot(geometry_msgs::msg::Point & pos1);
-
-/*
- *  @brief  Transforms the given point from the coordinate system of the camera
- *          to that of the robot
- */
-void cameraToRobotMod(
+void cameraToRobot(
   geometry_msgs::msg::Point & pos1, const double & x_angle,
-  const double & y_angle);
-
-/*
- *  @brief  Calculates the crossproduct of 2 vectors
- *  @param  normalize (bool): if the result should be normalized
- */
-geometry_msgs::msg::Point crossProduct(
-  const geometry_msgs::msg::Point & pos1,
-  const geometry_msgs::msg::Point & pos2, bool normalize = true);
-
-/*
- *  @brief  Calculate pose difference
- *  @param  coord_trans (bool): if the result shoud be transformed
- *          from camera to robot frame
- */
-geometry_msgs::msg::Point poseDiff(
-  const geometry_msgs::msg::Point & pos1,
-  const geometry_msgs::msg::Point & pos2, bool coord_trans = true);
-
-/*
- *  @brief  Calculates the quaternion corresponding to the 3 unit vectors
- *  @param  or1, or2 and or3 are the unit vectors for x, y and z directions
- *          in the new coordinate system
- */
-geometry_msgs::msg::Quaternion toQuaternion(
-  const geometry_msgs::msg::Point & or1,
-  const geometry_msgs::msg::Point & or2, const geometry_msgs::msg::Point & or3);
-
-enum class BODY_TRACKING_JOINTS
+  const double & y_angle)
 {
-  PELVIS = 0,
-  SPINE_NAVEL,
-  SPINE_CHEST,
-  NECK,
-  CLAVICLE_LEFT,
-  SHOULDER_LEFT,
-  ELBOW_LEFT,
-  WRIST_LEFT,
-  HAND_LEFT,
-  HANDTIP_LEFT,
-  THUMB_LEFT,
-  CLAVICLE_RIGHT,
-  SHOULDER_RIGHT,
-  ELBOW_RIGHT,
-  WRIST_RIGHT,
-  HAND_RIGHT,
-  HANDTIP_RIGHT,
-  THUMB_RIGHT,
-  HIP_LEFT,
-  KNEE_LEFT,
-  ANKLE_LEFT,
-  FOOT_LEFT,
-  HIP_RIGHT,
-  KNEE_RIGHT,
-  ANKLE_RIGHT,
-  FOOT_RIGHT,
-  HEAD,
-  NOSE,
-  EYE_LEFT,
-  EAR_LEFT,
-  EYE_RIGHT,
-  EAR_RIGHT,
-  COUNT
-};
+  Eigen::AngleAxisd rot1(-6 * M_PI / 180 + y_angle, Eigen::Vector3d::UnitX());
+  Eigen::AngleAxisd rot2(M_PI / 2 - x_angle, Eigen::Vector3d::UnitZ());
+  Eigen::AngleAxisd rot3(-M_PI / 2, Eigen::Vector3d::UnitY());
+  Eigen::Matrix3d rot = rot3.toRotationMatrix() * rot2.toRotationMatrix() * rot1.toRotationMatrix();
+
+  Eigen::Vector3d vector(pos1.x, pos1.y, pos1.z);
+  Eigen::Vector3d vector_rot = rot * vector;
+
+  pos1.x = vector_rot[0];
+  pos1.y = vector_rot[1];
+  pos1.z = vector_rot[2];
+}
 
 }  // namespace filter_points
 
-#endif  // UTILS__GEOMETRYUTILS_HPP_
+#endif  // UTILS__CAMERAUTILS_HPP_

@@ -231,19 +231,19 @@ void MapArm::markersReceivedCallback(
     std::vector<double> joint_state(7);
 
     auto elbow_rel_pos = elbow_it->pose.position - shoulder_it->pose.position;
-    cameraToRobotMod(elbow_rel_pos, x_angle_, y_angle_);
+    cameraToRobot(elbow_rel_pos, x_angle_, y_angle_);
 
     calculateJoints12(joint_state, elbow_rel_pos);
 
 
     auto wrist_rel_pos = wrist_it->pose.position - elbow_it->pose.position;
-    cameraToRobotMod(wrist_rel_pos, x_angle_, y_angle_);
+    cameraToRobot(wrist_rel_pos, x_angle_, y_angle_);
 
     calculateJoints34(joint_state, wrist_rel_pos);
 
     // Calculate joints 5 and 6
     auto handtip_rel_pos = handtip_it->pose.position - wrist_it->pose.position;
-    cameraToRobotMod(handtip_rel_pos, x_angle_, y_angle_);
+    cameraToRobot(handtip_rel_pos, x_angle_, y_angle_);
 
     calculateJoints56(joint_state, handtip_rel_pos);
 
@@ -253,7 +253,7 @@ void MapArm::markersReceivedCallback(
 
     if (left_hand_it != msg->markers.end()) {
       auto left_hand = left_hand_it->pose.position - shoulder_it->pose.position;
-      cameraToRobotMod(left_hand, x_angle_, y_angle_);
+      cameraToRobot(left_hand, x_angle_, y_angle_);
 
       // Start recording if left hand is raised vertically left
       if (left_hand.y > 0.9 && !record_) {
@@ -286,7 +286,7 @@ void MapArm::markersReceivedCallback(
     // If cartesian distance is small, do not send new commands
     if (left_hand_it != msg->markers.end()) {
       auto rel_pos = handtip_it->pose.position - shoulder_it->pose.position;
-      cameraToRobotMod(rel_pos, x_angle_, y_angle_);
+      cameraToRobot(rel_pos, x_angle_, y_angle_);
 
       auto delta = rel_pos - prev_rel_pos_;
       double delta_len = sqrt(
