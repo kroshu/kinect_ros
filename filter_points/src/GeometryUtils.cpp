@@ -26,7 +26,9 @@ void cameraToRobot(geometry_msgs::msg::Point & pos1)
   pos1.y = tmp;
 }
 
-void cameraToRobotMod(geometry_msgs::msg::Point & pos1, const double & x_angle, const double & y_angle)
+void cameraToRobotMod(
+  geometry_msgs::msg::Point & pos1, const double & x_angle,
+  const double & y_angle)
 {
   Eigen::AngleAxisd rot1(-6 * M_PI / 180 + y_angle, Eigen::Vector3d::UnitX());
   Eigen::AngleAxisd rot2(M_PI / 2 - x_angle, Eigen::Vector3d::UnitZ());
