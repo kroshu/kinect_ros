@@ -40,13 +40,13 @@
 #include "std_msgs/msg/float64_multi_array.hpp"
 #include "utils/CameraUtils.hpp"
 #include "kuka_sunrise/internal/service_tools.hpp"
+#include "kroshu_ros2_core/ROS2BaseNode.hpp"
 
 
 namespace filter_points
 {
 
-// TODO(kovacsge11) maybe derive from ROS2BaseNode
-class MapArm : public rclcpp::Node
+class MapArm : public kroshu_ros2_core::ROS2BaseNode
 {
 public:
   MapArm(const std::string & node_name, const rclcpp::NodeOptions & options);
@@ -68,9 +68,7 @@ private:
   double y_angle_;
   std::unique_ptr<rosbag2_cpp::writers::SequentialWriter> rosbag_writer_;
 
-  rcl_interfaces::msg::SetParametersResult onParamChange(
-    const std::vector<rclcpp::Parameter> & parameters);
-  bool onMovingAvgChangeRequest(const rclcpp::Parameter & param);
+  bool onMovingAvgChangeRequest(const std::vector<int64_t> & moving_avg);
   bool FindMarker(const camera_msgs::msg::Marker & marker, BODY_TRACKING_JOINTS joint);
   void writeBagFile(const sensor_msgs::msg::JointState & reference);
   void manageProcessingCallback(

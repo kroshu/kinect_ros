@@ -23,7 +23,7 @@
 namespace filter_points
 {
 MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & options)
-: rclcpp::Node(node_name, options)
+: kroshu_ros2_core::ROS2BaseNode(node_name, options)
 {
   imu_acceleration_.x = imu_acceleration_.y = imu_acceleration_.z = 0;
 
@@ -57,7 +57,13 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
 
   param_callback_ = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
-      return this->onParamChange(parameters);
+      return getParameterHandler().onParamChange(parameters);
+    });
+
+  registerParameter<std::vector<int64_t>>(
+    "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1, 4, 4, 0},
+    [this](const std::vector<int64_t> & moving_avg) {
+      return this->onMovingAvgChangeRequest(moving_avg);
     });
 
   const rosbag2_cpp::ConverterOptions converter_options(
@@ -77,28 +83,6 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
       this->get_logger(), e.what());
     rclcpp::shutdown();
   }
-
-  this->declare_parameter(
-    "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1,
-      4, 4, 0});
-}
-
-rcl_interfaces::msg::SetParametersResult MapArm::onParamChange(
-  const std::vector<rclcpp::Parameter> & parameters)
-{
-  rcl_interfaces::msg::SetParametersResult result;
-  result.successful = true;
-  for (const rclcpp::Parameter & param : parameters) {
-    if (param.get_name() == "moving_avg_depth") {
-      result.successful = onMovingAvgChangeRequest(param);
-    } else {
-      RCLCPP_ERROR(
-        this->get_logger(), "Invalid parameter name %s",
-        param.get_name().c_str());
-      result.successful = false;
-    }
-  }
-  return result;
 }
 
 MapArm::~MapArm()
@@ -118,41 +102,29 @@ MapArm::~MapArm()
   }
 }
 
-bool MapArm::onMovingAvgChangeRequest(const rclcpp::Parameter & param)
+bool MapArm::onMovingAvgChangeRequest(const std::vector<int64_t> & moving_avg)
 {
   if (motion_started_) {
     RCLCPP_ERROR(
       this->get_logger(),
-      "Parameter %s cannot be changed when motion has started",
-      param.get_name().c_str());
+      "Moving average depth cannot be changed when motion has started");
   }
-  if (param.get_type() !=
-    rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER_ARRAY)
-  {
-    RCLCPP_ERROR(
-      this->get_logger(), "Invalid parameter type for parameter %s",
-      param.get_name().c_str());
-    return false;
-  }
-  if (param.as_integer_array().size() != 7) {
+
+  if (moving_avg.size() != 7) {
     RCLCPP_ERROR(
       this->get_logger(),
-      "Invalid parameter array length for parameter %s",
-      param.get_name().c_str());
+      "Invalid parameter array length for moving average depth");
     return false;
   }
-  for (int64_t ma : param.as_integer_array()) {
+  for (int64_t ma : moving_avg) {
     if (ma < 0) {
-      RCLCPP_ERROR(
-        this->get_logger(),
-        "Invalid parameter value for parameter %s", param.get_name().c_str());
       RCLCPP_ERROR(
         this->get_logger(),
         "Moving average values must be greater than 0");
       return false;
     }
   }
-  moving_avg_depth_ = param.as_integer_array();
+  moving_avg_depth_ = moving_avg;
   return true;
 }
 
