@@ -22,16 +22,25 @@
 
 namespace filter_points
 {
-
 MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & options)
 : rclcpp::Node(node_name, options)
 {
+  imu_acceleration_.x = imu_acceleration_.y = imu_acceleration_.z = 0;
+
   marker_listener_ = this->create_subscription<
     camera_msgs::msg::MarkerArray>(
     "body_tracking_data", qos_,
     [this](camera_msgs::msg::MarkerArray::SharedPtr msg) {
       this->markersReceivedCallback(msg);
     });
+
+  imu_listener_ = this->create_subscription<
+    sensor_msgs::msg::Imu>(
+    "imu", qos_,
+    [this](sensor_msgs::msg::Imu::SharedPtr msg) {
+      this->imuReceivedCallback(msg);
+    });
+
   reference_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
     "reference_joint_state", qos_);
 
@@ -164,7 +173,7 @@ void MapArm::markersReceivedCallback(
   camera_msgs::msg::MarkerArray::SharedPtr msg)
 {
   motion_started_ = true;
-  if (!valid_) {
+  if (!valid_ || !initialized_) {
     return;
   }
   // Invalidate, if more than 1 person can be seen
@@ -221,22 +230,20 @@ void MapArm::markersReceivedCallback(
     sensor_msgs::msg::JointState reference;
     std::vector<double> joint_state(7);
 
-    auto elbow_rel_pos = poseDiff(
-      elbow_it->pose.position,
-      shoulder_it->pose.position);
+    auto elbow_rel_pos = elbow_it->pose.position - shoulder_it->pose.position;
+    cameraToRobotMod(elbow_rel_pos, x_angle_, y_angle_);
 
     calculateJoints12(joint_state, elbow_rel_pos);
 
-    auto wrist_rel_pos = poseDiff(
-      wrist_it->pose.position,
-      elbow_it->pose.position);
+
+    auto wrist_rel_pos = wrist_it->pose.position - elbow_it->pose.position;
+    cameraToRobotMod(wrist_rel_pos, x_angle_, y_angle_);
 
     calculateJoints34(joint_state, wrist_rel_pos);
 
     // Calculate joints 5 and 6
-    auto handtip_rel_pos = poseDiff(
-      handtip_it->pose.position,
-      wrist_it->pose.position);
+    auto handtip_rel_pos = handtip_it->pose.position - wrist_it->pose.position;
+    cameraToRobotMod(handtip_rel_pos, x_angle_, y_angle_);
 
     calculateJoints56(joint_state, handtip_rel_pos);
 
@@ -245,9 +252,9 @@ void MapArm::markersReceivedCallback(
     reference.position = joint_state;
 
     if (left_hand_it != msg->markers.end()) {
-      auto left_hand = poseDiff(
-        left_hand_it->pose.position,
-        shoulder_it->pose.position);
+      auto left_hand = left_hand_it->pose.position - shoulder_it->pose.position;
+      cameraToRobotMod(left_hand, x_angle_, y_angle_);
+
       // Start recording if left hand is raised vertically left
       if (left_hand.y > 0.9 && !record_) {
         RCLCPP_INFO(get_logger(), "Starting recording");
@@ -277,38 +284,86 @@ void MapArm::markersReceivedCallback(
     }
 
     // If cartesian distance is small, do not send new commands
-    auto rel_pos = poseDiff(
-      handtip_it->pose.position,
-      shoulder_it->pose.position);
-    auto delta = poseDiff(rel_pos, prev_rel_pos_);
-    double delta_len = sqrt(
-      delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+    if (left_hand_it != msg->markers.end()) {
+      auto rel_pos = handtip_it->pose.position - shoulder_it->pose.position;
+      cameraToRobotMod(rel_pos, x_angle_, y_angle_);
 
-    if (delta_len > 0.0001) {
-      prev_rel_pos_ = rel_pos;
-      RCLCPP_DEBUG(get_logger(), "Reference published");
-      reference_publisher_->publish(reference);
+      auto delta = rel_pos - prev_rel_pos_;
+      double delta_len = sqrt(
+        delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+
+      if (delta_len > 0.0001) {
+        prev_rel_pos_ = rel_pos;
+        RCLCPP_DEBUG(get_logger(), "Reference published");
+        reference_publisher_->publish(reference);
+      } else {
+        RCLCPP_INFO(
+          get_logger(), "Skipping frame, distance is only %f [cm]",
+          delta_len * 100);
+      }
+      prev_joint_state_ = joint_state;
     } else {
-      RCLCPP_INFO(
-        get_logger(), "Skipping frame, distance is only %f [cm]",
-        delta_len * 100);
-    }
-    prev_joint_state_ = joint_state;
-  } else {
-    RCLCPP_WARN(
-      get_logger(),
-      "Missing joint from hand, stopping motion");
+      RCLCPP_WARN(
+        get_logger(),
+        "Missing joint from hand, stopping motion");
 
-    auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
-      change_state_client_, trigger_request_, 0, 500);
+      auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
+        change_state_client_, trigger_request_, 0, 500);
 
-    if (!response || !response->success) {
-      RCLCPP_ERROR(get_logger(), "Could not deactivate driver, stopping node");
-      rclcpp::shutdown();
-      return;
+      if (!response || !response->success) {
+        RCLCPP_ERROR(get_logger(), "Could not deactivate driver, stopping node");
+        rclcpp::shutdown();
+        return;
+      }
     }
   }
 }
+
+void MapArm::imuReceivedCallback(
+  sensor_msgs::msg::Imu::SharedPtr msg)
+{
+  if (initialized_) {
+    return;
+  }
+
+  if (abs(msg->angular_velocity.x) > 0.01 || abs(msg->angular_velocity.x) > 0.01 ||
+    abs(msg->angular_velocity.x) > 0.01)
+  {
+    RCLCPP_WARN(get_logger(), "Acceleration value ignored, angular velocity was too big");
+    return;
+  }
+
+  imu_acceleration_ *= static_cast<double>(imu_count_) / (imu_count_ + 1);
+  imu_acceleration_ += (msg->linear_acceleration / (imu_count_ + 1));
+
+  if (imu_count_++ > 9) {
+    RCLCPP_INFO(
+      get_logger(), "IMU accelerations: %lf, %lf, %lf", imu_acceleration_.x, imu_acceleration_.y,
+      imu_acceleration_.z);
+    double length =
+      sqrt(
+      pow(
+        imu_acceleration_.x,
+        2) + pow(imu_acceleration_.y, 2) + pow(imu_acceleration_.z, 2));
+    if (length < 9.5 || length > 10) {
+      RCLCPP_WARN(get_logger(), "Invalid calibration, gravity vector was: %lf m/s^2", length);
+      imu_acceleration_ *= 0;
+      imu_count_ = 0;
+      return;
+    }
+    imu_acceleration_ /= length;
+    calculateAngles();
+    initialized_ = true;
+  }
+}
+
+void MapArm::calculateAngles()
+{
+  y_angle_ = atan2(-imu_acceleration_.x, -imu_acceleration_.z);
+  x_angle_ = atan2(-imu_acceleration_.y, -imu_acceleration_.z);
+  RCLCPP_INFO(get_logger(), "Angles from calibration: %lf, %lf [rad]", x_angle_, y_angle_);
+}
+
 
 void MapArm::writeBagFile(const sensor_msgs::msg::JointState & reference)
 {

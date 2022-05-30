@@ -26,6 +26,21 @@ void cameraToRobot(geometry_msgs::msg::Point & pos1)
   pos1.y = tmp;
 }
 
+void cameraToRobotMod(geometry_msgs::msg::Point & pos1, const double & x_angle, const double & y_angle)
+{
+  Eigen::AngleAxisd rot1(-6 * M_PI / 180 + y_angle, Eigen::Vector3d::UnitX());
+  Eigen::AngleAxisd rot2(M_PI / 2 - x_angle, Eigen::Vector3d::UnitZ());
+  Eigen::AngleAxisd rot3(-M_PI / 2, Eigen::Vector3d::UnitY());
+  Eigen::Matrix3d rot = rot3.toRotationMatrix() * rot2.toRotationMatrix() * rot1.toRotationMatrix();
+
+  Eigen::Vector3d vector(pos1.x, pos1.y, pos1.z);
+  Eigen::Vector3d vector_rot = rot * vector;
+
+  pos1.x = vector_rot[0];
+  pos1.y = vector_rot[1];
+  pos1.z = vector_rot[2];
+}
+
 geometry_msgs::msg::Quaternion toQuaternion(
   const geometry_msgs::msg::Point & or1,
   const geometry_msgs::msg::Point & or2,

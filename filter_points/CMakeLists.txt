@@ -21,10 +21,12 @@ include_directories(include)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 add_library(utils SHARED
   src/GeometryUtils.cpp)
 ament_target_dependencies(utils rclcpp)
+target_link_libraries(utils Eigen3::Eigen)
 
 ament_export_targets(utils HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp)

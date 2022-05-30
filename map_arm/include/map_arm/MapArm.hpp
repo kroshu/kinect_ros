@@ -31,6 +31,7 @@
 #include "rosbag2_cpp/writers/sequential_writer.hpp"
 #include "rosbag2_storage/serialized_bag_message.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 #include "camera_msgs/msg/marker_array.hpp"
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "std_srvs/srv/trigger.hpp"
@@ -53,13 +54,18 @@ public:
 
 private:
   bool valid_ = true;
+  bool initialized_ = false;
   bool motion_started_ = false;
   bool record_ = false;
   int bag_count_ = 0;
+  int imu_count_ = 0;
   std::vector<double> prev_joint_state_ = std::vector<double>(7);
   // int is not supported for vectors, only uint8_t or long
   std::vector<int64_t> moving_avg_depth_ = std::vector<int64_t>(7);
   geometry_msgs::msg::Point prev_rel_pos_;
+  geometry_msgs::msg::Vector3 imu_acceleration_;
+  double x_angle_;
+  double y_angle_;
   std::unique_ptr<rosbag2_cpp::writers::SequentialWriter> rosbag_writer_;
 
   rcl_interfaces::msg::SetParametersResult onParamChange(
@@ -69,8 +75,9 @@ private:
   void writeBagFile(const sensor_msgs::msg::JointState & reference);
   void manageProcessingCallback(
     std_msgs::msg::Bool::SharedPtr valid);
-  void markersReceivedCallback(
-    camera_msgs::msg::MarkerArray::SharedPtr msg);
+  void markersReceivedCallback(camera_msgs::msg::MarkerArray::SharedPtr msg);
+  void imuReceivedCallback(sensor_msgs::msg::Imu::SharedPtr msg);
+  void calculateAngles();
   void calculateJoints12(
     std::vector<double> & joint_state,
     const geometry_msgs::msg::Point & elbow_rel_pos);
@@ -88,6 +95,7 @@ private:
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr change_state_client_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr manage_processing_sub_;
   rclcpp::Subscription<camera_msgs::msg::MarkerArray>::SharedPtr marker_listener_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_listener_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr reference_publisher_;
 
   std_srvs::srv::Trigger::Request::SharedPtr trigger_request_ =

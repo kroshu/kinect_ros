@@ -19,6 +19,8 @@
 #include <vector>
 #include <string>
 
+#include <Eigen/Geometry>
+
 #include "boost/preprocessor.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
@@ -74,11 +76,81 @@ ENUM_MACRO(
 
 namespace filter_points
 {
+  geometry_msgs::msg::Vector3 operator+(
+    const geometry_msgs::msg::Vector3 & v1,
+    const geometry_msgs::msg::Vector3 & v2)
+  {
+    geometry_msgs::msg::Vector3 sum;
+    sum.x = v1.x + v2.x;
+    sum.y = v1.y + v2.y;
+    sum.z = v1.z + v2.z;
+    return sum;
+  }
+
+  geometry_msgs::msg::Vector3 & operator+=(
+    geometry_msgs::msg::Vector3 & v1,
+    const geometry_msgs::msg::Vector3 & v2)
+  {
+    v1 = v1 + v2;
+    return v1;
+  }
+
+geometry_msgs::msg::Vector3 operator/(const geometry_msgs::msg::Vector3 & v1, const double & factor)
+{
+  geometry_msgs::msg::Vector3 result;
+  result.x = v1.x / factor;
+  result.y = v1.y / factor;
+  result.z = v1.z / factor;
+  return result;
+}
+
+geometry_msgs::msg::Vector3 & operator/=(
+  geometry_msgs::msg::Vector3 & v1,
+  const double & factor)
+{
+  v1 = v1 / factor;
+  return v1;
+}
+
+geometry_msgs::msg::Vector3 operator*(const geometry_msgs::msg::Vector3 & v1, const double & factor)
+{
+  geometry_msgs::msg::Vector3 result;
+  result.x = v1.x * factor;
+  result.y = v1.y * factor;
+  result.z = v1.z * factor;
+  return result;
+}
+
+geometry_msgs::msg::Vector3 & operator*=(
+  geometry_msgs::msg::Vector3 & v1,
+  const double & factor)
+    {
+  v1 = v1 * factor;
+  return v1;
+    }
+
+geometry_msgs::msg::Point operator-(
+  const geometry_msgs::msg::Point & p1,
+  const geometry_msgs::msg::Point & p2)
+{
+  geometry_msgs::msg::Point result;
+  result.x = p1.x - p2.x;
+  result.y = p1.y - p2.y;
+  result.z = p1.z - p2.z;
+  return result;
+}
+
 /*
  *  @brief  Transforms the given point from the coordinate system of the camera
  *          to that of the robot
  */
 void cameraToRobot(geometry_msgs::msg::Point & pos1);
+
+/*
+ *  @brief  Transforms the given point from the coordinate system of the camera
+ *          to that of the robot
+ */
+void cameraToRobotMod(geometry_msgs::msg::Point & pos1, const double & x_angle, const double & y_angle);
 
 /*
  *  @brief  Calculates the crossproduct of 2 vectors
