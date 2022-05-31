@@ -25,11 +25,12 @@ find_package(Eigen3 REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(kuka_sunrise REQUIRED)
 find_package(kroshu_ros2_core REQUIRED)
+find_package(Boost REQUIRED)
 
 include_directories(include)
 
 add_executable(map_arm src/MapArm.cpp)
-ament_target_dependencies(map_arm rclcpp camera_msgs std_srvs sensor_msgs rosbag2_cpp kroshu_ros2_core)
+ament_target_dependencies(map_arm rclcpp camera_msgs std_srvs sensor_msgs rosbag2_cpp kroshu_ros2_core Boost)
 target_link_libraries(map_arm Eigen3::Eigen kuka_sunrise::internal)
 
 install(TARGETS map_arm
