@@ -47,7 +47,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_xmllint REQUIRED)
 
   ament_copyright()
-  ament_cppcheck(--language=c++)
+  ament_cppcheck(--language=c++ --exclude=syntaxError:CameraUtils.hpp:43)
   ament_pep257()
   ament_flake8()
   ament_cpplint()
