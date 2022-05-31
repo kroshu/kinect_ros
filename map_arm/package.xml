@@ -17,7 +17,6 @@
   <depend>kuka_sunrise</depend>
   <depend>kroshu_ros2_core</depend>
   <depend>eigen3</depend>
-  <depend>eigen3_cmake_module</depend>  
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
