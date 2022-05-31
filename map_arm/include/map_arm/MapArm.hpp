@@ -69,7 +69,7 @@ private:
   std::unique_ptr<rosbag2_cpp::writers::SequentialWriter> rosbag_writer_;
 
   bool onMovingAvgChangeRequest(const std::vector<int64_t> & moving_avg);
-  bool FindMarker(const camera_msgs::msg::Marker & marker, BODY_TRACKING_JOINTS joint);
+  bool FindMarker(const camera_msgs::msg::Marker & marker, BODY_TRACKING_JOINTS joint) const;
   void writeBagFile(const sensor_msgs::msg::JointState & reference);
   void manageProcessingCallback(
     std_msgs::msg::Bool::SharedPtr valid);

@@ -128,7 +128,7 @@ bool MapArm::onMovingAvgChangeRequest(const std::vector<int64_t> & moving_avg)
   return true;
 }
 
-bool MapArm::FindMarker(const camera_msgs::msg::Marker & marker, BODY_TRACKING_JOINTS joint)
+bool MapArm::FindMarker(const camera_msgs::msg::Marker & marker, BODY_TRACKING_JOINTS joint) const
 {
   int joint_id = marker.id % 100;
   if (joint_id == static_cast<int>(joint)) {
@@ -298,8 +298,8 @@ void MapArm::imuReceivedCallback(
     return;
   }
 
-  if (abs(msg->angular_velocity.x) > 0.01 || abs(msg->angular_velocity.x) > 0.01 ||
-    abs(msg->angular_velocity.x) > 0.01)
+  if (abs(msg->angular_velocity.x) > 0.01 || abs(msg->angular_velocity.y) > 0.01 ||
+    abs(msg->angular_velocity.z) > 0.01)
   {
     RCLCPP_WARN(get_logger(), "Acceleration value ignored, angular velocity was too big");
     return;
