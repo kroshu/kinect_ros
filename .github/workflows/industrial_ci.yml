@@ -35,7 +35,7 @@ jobs:
           BUILDER: colcon
           ANALYZER: sonarqube
           TEST_COVERAGE: true
-          UPSTREAM_WORKSPACE: 'github:kroshu/ros2_kuka_sunrise#master github:kroshu/Azure_Kinect_ROS_Driver#foxy-devel'
+          UPSTREAM_WORKSPACE: 'github:kroshu/ros2_kuka_sunrise#master https://github.com/kroshu/Azure_Kinect_ROS_Driver/tree/foxy-devel/camera_msgs'
           CMAKE_ARGS: '-DMOCK_FRI=ON'
           ROS_DISTRO: foxy
     env:
