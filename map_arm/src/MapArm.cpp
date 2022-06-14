@@ -55,11 +55,6 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   prev_rel_pos_.x = prev_rel_pos_.y =
     prev_rel_pos_.z = 0;
 
-  param_callback_ = this->add_on_set_parameters_callback(
-    [this](const std::vector<rclcpp::Parameter> & parameters) {
-      return getParameterHandler().onParamChange(parameters);
-    });
-
   registerParameter<std::vector<int64_t>>(
     "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1, 4, 4, 0},
     [this](const std::vector<int64_t> & moving_avg) {

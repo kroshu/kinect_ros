@@ -99,7 +99,6 @@ private:
   std_srvs::srv::Trigger::Request::SharedPtr trigger_request_ =
     std::make_shared<std_srvs::srv::Trigger::Request>();
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
-  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
   rclcpp::CallbackGroup::SharedPtr cbg_;
 };
 }  // namespace filter_points

@@ -63,7 +63,6 @@ private:
   rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_rate_client_;
   rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_rate_client_;
   rclcpp::QoS qos_ = rclcpp::QoS(rclcpp::KeepLast(1));
-  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_;
 
   rcl_interfaces::srv::SetParameters::Request::SharedPtr set_rate_request_;
   rcl_interfaces::srv::GetParameters::Request::SharedPtr get_rate_request_;

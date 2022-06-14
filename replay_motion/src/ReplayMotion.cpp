@@ -91,6 +91,9 @@ ReplayMotion::ReplayMotion(
 
 void ReplayMotion::addParameters()
 {
+  // Remove previously registered callback and update it to block parameter changes
+  //  if motion has already started
+  remove_on_set_parameters_callback(param_callback_.get());
   param_callback_ = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
       if (!reached_start_) {
