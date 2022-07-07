@@ -376,7 +376,7 @@ void MapArm::manageProcessingCallback(
       this->get_logger(),
       "LBR state is not 4, reactivate or restart system manager!");
     if (record_) {
-      rosbag_writer_->close();
+      rosbag_writer_->reset();
       std::string old_path = storage_options_.uri + "/" + storage_options_.uri + ".db3";
       std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
         "_0.db3";
