@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+      - humble
       - feature/**
       - fix/**
     paths-ignore:
