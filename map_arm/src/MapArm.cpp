@@ -80,7 +80,7 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
 
 MapArm::~MapArm()
 {
-  rosbag_writer_->close();
+  rosbag_writer_->reset();
   std::string old_path = storage_options_.uri + "/" + storage_options_.uri + "_0.db3";
   std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
     ".db3";
