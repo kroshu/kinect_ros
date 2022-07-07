@@ -62,7 +62,6 @@ private:
   std::vector<double> prev_joint_state_ = std::vector<double>(7);
   // int is not supported for vectors, only uint8_t or long
   std::vector<int64_t> moving_avg_depth_ = std::vector<int64_t>(7);
-  geometry_msgs::msg::Point prev_rel_pos_;
   geometry_msgs::msg::Vector3 imu_acceleration_;
   double x_angle_;
   double y_angle_;
@@ -86,7 +85,7 @@ private:
     std::vector<double> & joint_state,
     const geometry_msgs::msg::Point & handtip_rel_pos);
 
-  const rosbag2_cpp::StorageOptions storage_options_ = rosbag2_cpp::StorageOptions(
+  const rosbag2_storage::StorageOptions storage_options_ = rosbag2_storage::StorageOptions(
     {"replay",
       "sqlite3"});
 

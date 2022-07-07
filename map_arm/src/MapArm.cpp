@@ -52,9 +52,7 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
   change_state_client_ = this->create_client<std_srvs::srv::Trigger>(
     "system_manager/trigger_change", ::rmw_qos_profile_default, cbg_);
 
-  prev_rel_pos_.x = prev_rel_pos_.y =
-    prev_rel_pos_.z = 0;
-
+  // depth is defined as window size - 1
   registerParameter<std::vector<int64_t>>(
     "moving_avg_depth", std::vector<int64_t> {1, 1, 1, 1, 4, 4, 0},
     [this](const std::vector<int64_t> & moving_avg) {
@@ -82,7 +80,7 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
 
 MapArm::~MapArm()
 {
-  rosbag_writer_->reset();
+  rosbag_writer_->close();
   std::string old_path = storage_options_.uri + "/" + storage_options_.uri + "_0.db3";
   std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
     ".db3";
@@ -250,38 +248,22 @@ void MapArm::markersReceivedCallback(
       writeBagFile(reference);
     }
 
-    // If cartesian distance is small, do not send new commands
-    if (left_hand_it != msg->markers.end()) {
-      auto rel_pos = handtip_it->pose.position - shoulder_it->pose.position;
-      cameraToRobot(rel_pos, x_angle_, y_angle_);
 
-      auto delta = rel_pos - prev_rel_pos_;
-      double delta_len = sqrt(
-        delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+    RCLCPP_DEBUG(get_logger(), "Reference published");
+    reference_publisher_->publish(reference);
+    prev_joint_state_ = joint_state;
+  } else {
+    RCLCPP_WARN(
+      get_logger(),
+      "Missing joint from hand, stopping motion");
 
-      if (delta_len > 0.0001) {
-        prev_rel_pos_ = rel_pos;
-        RCLCPP_DEBUG(get_logger(), "Reference published");
-        reference_publisher_->publish(reference);
-      } else {
-        RCLCPP_INFO(
-          get_logger(), "Skipping frame, distance is only %f [cm]",
-          delta_len * 100);
-      }
-      prev_joint_state_ = joint_state;
-    } else {
-      RCLCPP_WARN(
-        get_logger(),
-        "Missing joint from hand, stopping motion");
+    auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
+      change_state_client_, trigger_request_, 0, 500);
 
-      auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
-        change_state_client_, trigger_request_, 0, 500);
-
-      if (!response || !response->success) {
-        RCLCPP_ERROR(get_logger(), "Could not deactivate driver, stopping node");
-        rclcpp::shutdown();
-        return;
-      }
+    if (!response || !response->success) {
+      RCLCPP_ERROR(get_logger(), "Could not deactivate driver, stopping node");
+      rclcpp::shutdown();
+      return;
     }
   }
 }
@@ -394,7 +376,7 @@ void MapArm::manageProcessingCallback(
       this->get_logger(),
       "LBR state is not 4, reactivate or restart system manager!");
     if (record_) {
-      rosbag_writer_->reset();
+      rosbag_writer_->close();
       std::string old_path = storage_options_.uri + "/" + storage_options_.uri + ".db3";
       std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
         "_0.db3";
@@ -470,7 +452,11 @@ void MapArm::calculateJoints56(
     handtip_rel_pos.z);
   Eigen::Vector3d h_rel_pos_loc = rot * h_rel_pos_glob;
 
-  joint_state[4] = atan2(abs(h_rel_pos_loc[1]), abs(h_rel_pos_loc[0]));
+  if (abs(h_rel_pos_loc[0]) > 0.02 || abs(h_rel_pos_loc[1]) > 0.02) {
+    joint_state[4] = atan2(abs(h_rel_pos_loc[1]), abs(h_rel_pos_loc[0]));
+  } else {
+    joint_state[4] = prev_joint_state_[4];
+  }
 
   if (abs(h_rel_pos_loc[1]) > abs(h_rel_pos_loc[0])) {
     if (h_rel_pos_loc[1] > 0) {
