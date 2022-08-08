@@ -1,4 +1,4 @@
-// Copyright 2021 Aron Svastits
+// Copyright 2022 Aron Svastits
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ void ReplayMotion::addParameters()
   remove_on_set_parameters_callback(ParamCallback().get());
   ParamCallback() = this->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & parameters) {
-      if (!reached_start_) {
+      if (!ticks_to_start) {
         return getParameterHandler().onParamChange(parameters);
       } else {
         rcl_interfaces::msg::SetParametersResult result;
@@ -229,29 +229,31 @@ void ReplayMotion::timerCallback()
   if (repeat_count_ < 0) {repeat_count_ = -1;}
 
   // Jog to starting position slowly
-  if (!reached_start_) {
+  if (!ticks_to_start) {
     double dist_sum = 0;
     sensor_msgs::msg::JointState jog_to_start;
     std::vector<double> jog_position;
+    double max_jog_dist = 0.3 / start_rate_;
     for (int i = 0; i < 7; i++) {
       double dist = reference_.position[i] -
         measured_joint_state_->position[i];
       dist_sum += pow(dist, 2);
       jog_position.push_back(
         measured_joint_state_->position[i] +
-        sgn(dist) * std::min(0.03, abs(dist)));
+        sgn(dist) * std::min(max_jog_dist, abs(dist)));
     }
     jog_to_start.position = jog_position;
     if (dist_sum < 0.001) {
-      if (!changeRate(rates_[0], start_rate_)) {
-        rclcpp::shutdown();
-        return;
+      ticks_to_start--;
+      if (!ticks_to_start) {
+        if (!changeRate(rates_[0], start_rate_)) {
+          rclcpp::shutdown();
+          return;
+        }
+        RCLCPP_INFO(
+          this->get_logger(),
+          "Robot reached start position, starting the actual motion");
       }
-
-      reached_start_ = true;
-      RCLCPP_INFO(
-        this->get_logger(),
-        "Robot reached start position, starting the actual motion");
     } else {
       reference_publisher_->publish(jog_to_start);
     }
@@ -396,8 +398,8 @@ bool ReplayMotion::onRatesChangeRequest(const std::vector<double> & rates)
   }
 
   for (auto & rate : rates) {
-    if (rate < 0.2 || rate > 5) {
-      RCLCPP_ERROR(this->get_logger(), "0.2 < rate < 5 must be true");
+    if (rate < 2.5 || rate > 65) {
+      RCLCPP_ERROR(this->get_logger(), "2.5 < rate < 65 must be true");
       return false;
     }
   }

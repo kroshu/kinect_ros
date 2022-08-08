@@ -1,4 +1,4 @@
-// Copyright 2021 Aron Svastits
+// Copyright 2022 Aron Svastits
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,11 +44,11 @@ public:
   ReplayMotion(const std::string & node_name, const rclcpp::NodeOptions & options);
 
 private:
-  bool reached_start_ = false;
+  int ticks_to_start = 2;
   bool valid_ = true;
   int repeat_count_ = 0;  // negative numbers mean repeat infinitely
   int delay_count_ = 0;
-  std::vector<double> rates_ = std::vector<double>({1.0});
+  std::vector<double> rates_ = std::vector<double>({13.0});
   std::vector<double> delays_ = std::vector<double>({0.0});
   unsigned int csv_count_ = 1;
   std::vector<std::string> csv_path_;
