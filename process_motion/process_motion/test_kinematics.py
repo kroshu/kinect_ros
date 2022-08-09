@@ -78,7 +78,7 @@ while i < 500:
     i += 1
     if SET_LAST:
         joint_states[-1] = 0
-    goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig, all_dof=True)
+    goal_pos = kn.calc_forw_kin(kn.calc_transform(DH_PARAMS), js_orig)
     servo_joints = kn.servo_calcs(DH_PARAMS, goal_pos, joint_states, set_last=SET_LAST)[0]
     servo_list = kn.process_result(servo_joints)
 
