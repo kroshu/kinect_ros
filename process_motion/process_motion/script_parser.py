@@ -31,7 +31,7 @@ SRC_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 class ScriptParser(rclpy.node.Node):
-    """Class managing script parsing"""
+    """Class managing script parsing."""
 
     def __init__(self):
         super().__init__('script_parser_node')
@@ -43,7 +43,7 @@ class ScriptParser(rclpy.node.Node):
         self.file_count = 0
 
     def init_node(self):
-        """Initialize ROS2 node parameters"""
+        """Initialize ROS2 node parameters."""
         while os.path.isfile(CSV_DIR + f'motion{self.file_count + 1}.csv'):
             self.file_count += 1
         print(f'Found {self.file_count} files to process')
@@ -53,7 +53,7 @@ class ScriptParser(rclpy.node.Node):
                                    integer_array_value.tolist())
 
     def smooth_motion(self):
-        """Call smooting script with arguments based on ROS2 parameter"""
+        """Call smooting script with arguments based on ROS2 parameter."""
         # Check validity of smoothing_files
         if len(self.smoothing_files) > 0:
             for i in self.smoothing_files:
@@ -77,7 +77,7 @@ class ScriptParser(rclpy.node.Node):
             os.system(SRC_DIR + '/smoothing.py' + smoothing_params)
 
     def set_endpoint(self):
-        """Call endpoint setting script with arguments based on ROS2 parameter"""
+        """Call endpoint setting script with arguments based on ROS2 parameter."""
         # Check validity of set_endpoint_files
         if len(self.set_endpoint_files) > 0:
             for i in self.set_endpoint_files:

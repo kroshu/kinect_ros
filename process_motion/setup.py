@@ -22,7 +22,7 @@ setup(
     maintainer_email='svastits1@gmail.com',
     description='Postprocessing of recorded motions',
     license='Apache 2.0',
-    tests_require=['pytest'],
+    tests_require=['ament_flake8', 'ament_copyright', 'ament_xmllint'],
     entry_points={
         'console_scripts': [
             'script_parser = process_motion.script_parser:main'
