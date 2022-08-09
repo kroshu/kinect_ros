@@ -117,5 +117,6 @@ for j in range(1, ARG_COUNT):
         configs = Dict2Class(config_dict['set_endpoint']['last'])
         data = set_endpoint(data, configs, False)
 
-    data.to_csv(CSV_DIR + f'motion{sys.argv[j]}_tmp.csv',
+    # this overrides original data series!!
+    data.to_csv(CSV_DIR + f'motion{sys.argv[j]}.csv',
                 sep=',', decimal='.', header=None,  index=False)

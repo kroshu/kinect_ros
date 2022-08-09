@@ -228,6 +228,9 @@ def filter_butter(data, window):
 
 
 def merge_data(forw_result, reversed_result):
+    """
+    Merges two data series that have been filtered from opposite directions
+    """
     result = pd.DataFrame()
     half = (int)(forw_result.shape[0] / 2)
     for i in range(len(forw_result.columns)):
@@ -343,5 +346,6 @@ for j in range(1, ARG_COUNT):
     print(smoothed.iloc[[0, -1]])
     print(data_csv.iloc[[0, -1]])
 
-    smoothed.to_csv(CSV_DIR + f'motion{sys.argv[j]}_tmp.csv',
+    # this overrides original data series!!
+    smoothed.to_csv(CSV_DIR + f'motion{sys.argv[j]}.csv',
                     sep=',', decimal='.', header=None,  index=False)
