@@ -14,14 +14,14 @@ set_endpoint:
       p: -0.4
       y: -0.064
     reference_count: 5
-  last:
-    position:
-      x: 0.0
-      y: 0.0
-      z: 0.0
-    orientation:
-      r: 0.0
-      p: 0.0
-      y: 0.0
-    reference_count: 5
+  # last:
+  #   position:
+  #     x: 0.0
+  #     y: 0.0
+  #     z: 0.0
+  #   orientation:
+  #     r: 0.0
+  #     p: 0.0
+  #     y: 0.0
+  #   reference_count: 5
     

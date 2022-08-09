@@ -2,21 +2,21 @@
 # Config supports one default setting for all files with different options for first and last in sequence
 # To get fully custom settings for all files, the python script must be modified and the script called multiple times
 #   with different yaml configurations
-moving_average:
+smoothing:
   default:
-    type: "simple"
+    type: "filter"
     window_size: [2, 2, 2, 2, 4, 4, 1]
     keep_first: false
     keep_last: false
     pad: false
   first:
-    type: "weighted"
+    type: "filter"
     window_size: [2, 2, 2, 2, 4, 4, 1]
-    keep_first: false
-    keep_last: true
-    pad: true
+    keep_first: true
+    keep_last: false
+    pad: false
   last:
-    type: "simple"
+    type: "filter"
     window_size: [2, 2, 2, 2, 4, 4, 1]
     keep_first: false
     keep_last: true

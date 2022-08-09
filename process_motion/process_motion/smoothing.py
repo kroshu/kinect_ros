@@ -3,7 +3,7 @@
 """
 Applies a smoothing method on the recorded movement of the robot based on the configuration.
 
-    Configuration file: config/moving_average.yaml
+    Configuration file: config/smoothing.yaml
 """
 
 import os
@@ -317,18 +317,18 @@ print('Files to smooth:', ARG_COUNT-1)
 WS_DIR = str(Path(__file__).parent.parent.parent.parent.parent.absolute())
 CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
 CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
-                           'config', 'moving_average.yaml')
+                           'config', 'smoothing.yaml')
 
 with open(CONFIG_PATH, 'r', encoding="utf-8") as file:
     config_dict = yaml.safe_load(file)
 
-default_config = Dict2Class(config_dict['moving_average']['default'])
-if 'first' in config_dict['moving_average'].keys():
-    first_config = Dict2Class(config_dict['moving_average']['first'])
+default_config = Dict2Class(config_dict['smoothing']['default'])
+if 'first' in config_dict['smoothing'].keys():
+    first_config = Dict2Class(config_dict['smoothing']['first'])
 else:
     first_config = default_config
-if 'last' in config_dict['moving_average'].keys():
-    last_config = Dict2Class(config_dict['moving_average']['last'])
+if 'last' in config_dict['smoothing'].keys():
+    last_config = Dict2Class(config_dict['smoothing']['last'])
 else:
     last_config = default_config
 
