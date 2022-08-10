@@ -85,7 +85,7 @@ private:
     std::vector<double> & joint_state,
     const geometry_msgs::msg::Point & handtip_rel_pos);
 
-  const rosbag2_cpp::StorageOptions storage_options_ = rosbag2_cpp::StorageOptions(
+  const rosbag2_storage::StorageOptions storage_options_ = rosbag2_storage::StorageOptions(
     {"replay",
       "sqlite3"});
 
