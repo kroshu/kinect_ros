@@ -36,6 +36,9 @@ target_link_libraries(map_arm Eigen3::Eigen kuka_sunrise::internal)
 install(TARGETS map_arm
   DESTINATION lib/${PROJECT_NAME})
 
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME})
+  
 if(BUILD_TESTING)
   find_package(ament_cmake_copyright REQUIRED)
   find_package(ament_cmake_cppcheck REQUIRED)

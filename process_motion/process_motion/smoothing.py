@@ -3,7 +3,7 @@
 """
 Applies a smoothing method on the recorded movement of the robot based on the configuration.
 
-    Configuration file: config/moving_average.yaml
+    Configuration file: config/smoothing.yaml
 """
 
 import os
@@ -21,9 +21,8 @@ ALLOWED_KEYS = ['type', 'window_size', 'keep_first', 'keep_last', 'pad']
 
 
 class Dict2Class:
-    """
-    Converts the yaml dictionary to an object with the required member variables
-    """
+    """Convert the yaml dictionary to an object with the required member variables."""
+
     def __init__(self, my_dict):
         self.type = 'simple'
         self.window_size = [2, 2, 2, 2, 5, 5, 1]
@@ -41,9 +40,7 @@ class Dict2Class:
 
 
 def mov_avg(data, window, periods):
-    """
-    Implements a simple moving average
-    """
+    """Implement a simple moving average."""
     moving_avg = pd.DataFrame([])
     for i in range(len(data.columns)):
         moving_avg_tmp = data[i].rolling(window[i], min_periods=periods[i]).mean()
@@ -54,7 +51,8 @@ def mov_avg(data, window, periods):
 
 def calc_weights(w_data):
     """
-    Calculate weights for WMA
+    Calculate weights for WMA.
+
     Latest value has a bigger weight, if the end of the window is monotonous
     """
     if len(w_data) < 4:
@@ -71,7 +69,8 @@ def calc_weights(w_data):
 
 def calc_weights2(w_data):
     """
-    Calculate weights for WMA
+    Calculate weights for WMA.
+
     Latest value has a bigger weight, if the end of the window is significantly different
     from the average
     """
@@ -87,10 +86,7 @@ def calc_weights2(w_data):
 
 
 def calc_weights_const(w_data):
-    """
-    Calculate weights for CWMA
-    Applies constant weights
-    """
+    """Calculate constants weights for WMA."""
     weights = [1]
     if len(w_data) > 3:
         weights = [1 / (len(w_data) + 2)] * (len(w_data) - 3)
@@ -102,9 +98,7 @@ def calc_weights_const(w_data):
 
 
 def w_moving_avg(data, window, periods):
-    """
-    Implements weighted moving average with not constant weights
-    """
+    """Implement weighted moving average with not constant weights."""
     moving_avg = pd.DataFrame([])
     for i in range(len(data.columns)):
         moving_avg_tmp = data[i].rolling(window[i],
@@ -115,9 +109,7 @@ def w_moving_avg(data, window, periods):
 
 
 def cw_moving_avg(data, window, periods):
-    """
-    Implements weighted moving average with constant weights
-    """
+    """Implement weighted moving average with constant weights."""
     moving_avg = pd.DataFrame([])
     weights = [1]
     for i in range(len(data.columns)):
@@ -136,9 +128,7 @@ def cw_moving_avg(data, window, periods):
 
 
 def check_monotony(w_data, mon_count):
-    """
-    Checks whether the end of a window is monoton
-    """
+    """Check whether the end of a window is monoton."""
     if mon_count < 3:
         print('[WARNING] Monotony window too small')
         return False
@@ -156,7 +146,8 @@ def check_monotony(w_data, mon_count):
 
 def w_moving_avg_2(data, window, periods, mon_count=4):
     """
-    Implements weighted moving average with not constant weights
+    Implement weighted moving average with not constant weights.
+
     The effect of the past is not completely neglected
     """
     moving_avg = pd.DataFrame([])
@@ -210,9 +201,7 @@ def w_moving_avg_2(data, window, periods, mon_count=4):
 
 
 def filter_butter(data, window):
-    """
-    Implements low-pass Butterworth filter
-    """
+    """Implement low-pass Butterworth filter."""
     moving_avg = pd.DataFrame([])
     for i in range(len(data.columns)):
         cutoff = 1 / window[i]
@@ -228,6 +217,7 @@ def filter_butter(data, window):
 
 
 def merge_data(forw_result, reversed_result):
+    """Merge two data series that have been filtered from opposite directions."""
     result = pd.DataFrame()
     half = (int)(forw_result.shape[0] / 2)
     for i in range(len(forw_result.columns)):
@@ -246,9 +236,7 @@ def merge_data(forw_result, reversed_result):
 
 
 def smooth_graph(data, config):
-    """
-    Chooses the mode of processing based on the config file
-    """
+    """Choose the mode of processing based on the config file."""
     keep_both = False
     if config.keep_first:
         min_periods = [1] * JOINT_COUNT
@@ -314,18 +302,18 @@ print('Files to smooth:', ARG_COUNT-1)
 WS_DIR = str(Path(__file__).parent.parent.parent.parent.parent.absolute())
 CSV_DIR = os.path.join(WS_DIR, 'replay', 'data', '')
 CONFIG_PATH = os.path.join(str(Path(__file__).parent.parent.absolute()),
-                           'config', 'moving_average.yaml')
+                           'config', 'smoothing.yaml')
 
 with open(CONFIG_PATH, 'r', encoding="utf-8") as file:
     config_dict = yaml.safe_load(file)
 
-default_config = Dict2Class(config_dict['moving_average']['default'])
-if 'first' in config_dict['moving_average'].keys():
-    first_config = Dict2Class(config_dict['moving_average']['first'])
+default_config = Dict2Class(config_dict['smoothing']['default'])
+if 'first' in config_dict['smoothing'].keys():
+    first_config = Dict2Class(config_dict['smoothing']['first'])
 else:
     first_config = default_config
-if 'last' in config_dict['moving_average'].keys():
-    last_config = Dict2Class(config_dict['moving_average']['last'])
+if 'last' in config_dict['smoothing'].keys():
+    last_config = Dict2Class(config_dict['smoothing']['last'])
 else:
     last_config = default_config
 
@@ -343,5 +331,6 @@ for j in range(1, ARG_COUNT):
     print(smoothed.iloc[[0, -1]])
     print(data_csv.iloc[[0, -1]])
 
-    smoothed.to_csv(CSV_DIR + f'motion{sys.argv[j]}_tmp.csv',
+    # this overrides original data series!!
+    smoothed.to_csv(CSV_DIR + f'motion{sys.argv[j]}.csv',
                     sep=',', decimal='.', header=None,  index=False)
