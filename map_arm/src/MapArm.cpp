@@ -64,7 +64,7 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
       rmw_get_serialization_format()});
   rosbag_writer_ = std::make_unique<rosbag2_cpp::writers::SequentialWriter>();
   try {
-	// Create replay/replay_0.db3 file, replay folder should not exist!
+    // Create replay/replay_0.db3 file, replay folder should not exist!
     rosbag_writer_->open(storage_options_, converter_options);
     rosbag_writer_->create_topic(
       {"reference_joint_state", "std_msgs/Float64MultiArray",
