@@ -64,6 +64,7 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
       rmw_get_serialization_format()});
   rosbag_writer_ = std::make_unique<rosbag2_cpp::writers::SequentialWriter>();
   try {
+	// Create replay/replay_0.db3 file, replay folder should not exist!
     rosbag_writer_->open(storage_options_, converter_options);
     rosbag_writer_->create_topic(
       {"reference_joint_state", "std_msgs/Float64MultiArray",
@@ -377,9 +378,9 @@ void MapArm::manageProcessingCallback(
       "LBR state is not 4, reactivate or restart system manager!");
     if (record_) {
       rosbag_writer_->close();
-      std::string old_path = storage_options_.uri + "/" + storage_options_.uri + ".db3";
+      std::string old_path = storage_options_.uri + "/" + storage_options_.uri + "_0.db3";
       std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
-        "_0.db3";
+        ".db3";
       if (rename(
           old_path.c_str(),
           new_path.c_str()))
