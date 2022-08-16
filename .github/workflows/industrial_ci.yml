@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+      - humble
       - feature/**
       - fix/**
     paths-ignore:
@@ -19,6 +20,7 @@ on:
   pull_request:
     branches:
       - master
+      - humble
       - feature/**
       - fix/**
     paths-ignore:
