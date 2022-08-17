@@ -8,11 +8,20 @@ import math
 import numpy as np
 import sympy as sp
 
+from enum import Enum
+
 LOWER_LIMITS = [-170, -120, -170, -120, -170, -120, -175]
 UPPER_LIMITS = [170, 120, 170, 120, 170, 120, 175]
 
 LOWER_LIMITS_R = [0.9 * math.radians(deg) for deg in LOWER_LIMITS]
 UPPER_LIMITS_R = [0.9 * math.radians(deg) for deg in UPPER_LIMITS]
+
+
+class JointLimits(Enum):
+    UNCHECKED = 0
+    REDUCE_DOF = 1
+    GOAL_VECTOR = 2
+    COMBINED = 3
 
 
 def denavit_to_matrix(s_a, s_alpha, s_d, s_theta, tool_length=0):
@@ -211,7 +220,8 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         if delta_theta.norm() < 1e-5:
             delta_theta = sp.Matrix([0, 0, 0, 0, 0, 0, 0])
 
-        if joint_limits in [1, 3]:
+        # Exclude joints at limits from the Jacobian
+        if joint_limits in [JointLimits.REDUCE_DOF, JointLimits.COMBINED]:
             exceeded = check_joint_limits((sp.Matrix(joint_states) + delta_theta).evalf(4))[1]
             if len(exceeded) > 0:
                 J = calc_jacobian(dh_params, joint_states, exceeded)
@@ -231,7 +241,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         # delta_theta -= null_space_proj * grad(function to minimize)
         goal_vector = sp.Matrix([0, 0, 0, 0, 0, 0, 0])
         null_space_proj = np.eye(joint_count) - J_inv * J
-        if joint_limits == 2:
+        if joint_limits == JointLimits.GOAL_VECTOR:
             # goal vector will be a linear, x = 90 to 100%, y = 0 to 1
             limit_length = (sp.Matrix(UPPER_LIMITS_R) - sp.Matrix(LOWER_LIMITS_R))
             goal_vector = (sp.Matrix(joint_states) - (sp.Matrix(LOWER_LIMITS_R)
@@ -246,7 +256,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
                     goal_vector[j] = 0
                 else:
                     goal_vector[j] = 10 * (goal_vector[j] - 0.45 * np.sign(goal_vector[j]))
-        elif joint_limits in [0, 3]:
+        elif joint_limits in [JointLimits.UNCHECKED, JointLimits.COMBINED]:
             goal_vector = (sp.Matrix(joint_states) - sp.Matrix(start_joints))
             if set_last:
                 goal_vector[-1] = 0
@@ -264,7 +274,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
 
         # Limits are enforced, but new delta_theta in reduced DOF scenario can exceed a limit
         #   for another joint
-        if joint_limits in [1, 3]:
+        if joint_limits in [JointLimits.REDUCE_DOF, JointLimits.COMBINED]:
             for j in range(joint_count):
                 if joint_states[j] > UPPER_LIMITS_R[j]:
                     joint_states[j] = UPPER_LIMITS_R[j] - 0.0005
@@ -275,7 +285,7 @@ def servo_calcs(dh_params, goal_pos, joint_states, max_iter=500, pos_tol=1e-5,
         actual_pos = calc_forw_kin(trans_matrix, joint_states)
         diff = sp.Matrix([goal_pos_tmp]).transpose() - sp.Matrix([actual_pos])
 
-        if joint_limits == 2 and not check_joint_limits(joint_states)[0]:
+        if joint_limits == JointLimits.GOAL_VECTOR and not check_joint_limits(joint_states)[0]:
             blocked = True
             print('Joint limits exceeded, termination blocked')
         else:
@@ -296,15 +306,15 @@ def servo_all_methods(dh_params, goal_pos, joint_states, set_last=0):
     if servo_joints is not None and not check_joint_limits(servo_joints)[0]:
         print('[WARNING] Exceeded limits, runnning with new configuration')
         servo_joints = servo_calcs(dh_params, goal_pos, j_s, set_last=set_last,
-                                   max_iter=250, joint_limits=1)[0]
+                                   max_iter=250, joint_limits=JointLimits.REDUCE_DOF)[0]
         if servo_joints is None:
             print('[WARNING] Enforcing joint limits also failed, retrying with goal vector')
             servo_joints = servo_calcs(dh_params, goal_pos, j_s, set_last=set_last,
-                                       max_iter=250, joint_limits=2)[0]
+                                       max_iter=250, joint_limits=JointLimits.GOAL_VECTOR)[0]
             if servo_joints is None:
                 print('[WARNING] Goal vector failed, last attempt with enforcing + goal vector')
                 servo_joints = servo_calcs(dh_params, goal_pos, j_s, set_last=set_last,
-                                           max_iter=250, joint_limits=3)[0]
+                                           max_iter=250, joint_limits=JointLimits.COMBINED)[0]
         process_result(servo_joints)
         if servo_joints is not None and not check_joint_limits(servo_joints)[0]:
             print('[ERROR] New configuration was also not successful')
