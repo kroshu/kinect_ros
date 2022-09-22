@@ -10,10 +10,14 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   
   <depend>rclcpp</depend>
-  <depend>visualization_msgs</depend>
+  <depend>camera_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>std_srvs</depend>
-  <depend>filter_points</depend>
+  <depend>rosbag2_cpp</depend>
+  <depend>kuka_sunrise</depend>
+  <depend>kroshu_ros2_core</depend>
+  <depend>eigen</depend>
+  <depend>boost</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

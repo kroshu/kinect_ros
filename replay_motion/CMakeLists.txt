@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(driver_guided_robot)
+project(replay_motion)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -18,25 +18,18 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_lifecycle REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
-find_package(kuka_sunrise_interfaces REQUIRED)
 find_package(kuka_sunrise REQUIRED)
+find_package(kroshu_ros2_core REQUIRED)
 
 include_directories(include)
 
-add_executable(system_manager
-    src/control_system/system_manager.cpp)
-ament_target_dependencies(system_manager rclcpp rclcpp_lifecycle std_msgs std_srvs kuka_sunrise_interfaces)
-target_link_libraries(system_manager kuka_sunrise::internal)
+add_executable(replay_motion src/ReplayMotion.cpp)
+ament_target_dependencies(replay_motion rclcpp sensor_msgs kroshu_ros2_core)
+target_link_libraries(replay_motion kuka_sunrise::internal)
 
-install(TARGETS system_manager
+install(TARGETS replay_motion
     DESTINATION lib/${PROJECT_NAME})
-
-install(DIRECTORY launch
-    DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_copyright REQUIRED)
@@ -57,5 +50,6 @@ if(BUILD_TESTING)
   ament_uncrustify()
   ament_xmllint()
 endif()
+
 
 ament_package()
