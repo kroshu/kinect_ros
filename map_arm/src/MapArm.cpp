@@ -230,7 +230,7 @@ void MapArm::markersReceivedCallback(
       if (left_hand.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
 
-        auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
+        auto response = kroshu_ros2_core::sendRequest<std_srvs::srv::Trigger::Response>(
           change_state_client_, trigger_request_, 0, 500);
 
         if (!response || !response->success) {
@@ -258,7 +258,7 @@ void MapArm::markersReceivedCallback(
       get_logger(),
       "Missing joint from hand, stopping motion");
 
-    auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
+    auto response = kroshu_ros2_core::sendRequest<std_srvs::srv::Trigger::Response>(
       change_state_client_, trigger_request_, 0, 500);
 
     if (!response || !response->success) {
