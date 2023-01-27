@@ -39,7 +39,7 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
 #include "utils/CameraUtils.hpp"
-#include "kuka_sunrise/internal/service_tools.hpp"
+#include "communication_helpers/service_tools.hpp"
 #include "kroshu_ros2_core/ROS2BaseNode.hpp"
 
 
@@ -85,7 +85,7 @@ private:
     std::vector<double> & joint_state,
     const geometry_msgs::msg::Point & handtip_rel_pos);
 
-  const rosbag2_cpp::StorageOptions storage_options_ = rosbag2_cpp::StorageOptions(
+  const rosbag2_storage::StorageOptions storage_options_ = rosbag2_storage::StorageOptions(
     {"replay",
       "sqlite3"});
 

@@ -81,7 +81,7 @@ MapArm::MapArm(const std::string & node_name, const rclcpp::NodeOptions & option
 
 MapArm::~MapArm()
 {
-  rosbag_writer_->reset();
+  rosbag_writer_->close();
   std::string old_path = storage_options_.uri + "/" + storage_options_.uri + "_0.db3";
   std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
     ".db3";
@@ -230,7 +230,7 @@ void MapArm::markersReceivedCallback(
       if (left_hand.z > 0.4) {
         RCLCPP_INFO(get_logger(), "Motion stopped with left hand");
 
-        auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
+        auto response = kroshu_ros2_core::sendRequest<std_srvs::srv::Trigger::Response>(
           change_state_client_, trigger_request_, 0, 500);
 
         if (!response || !response->success) {
@@ -258,7 +258,7 @@ void MapArm::markersReceivedCallback(
       get_logger(),
       "Missing joint from hand, stopping motion");
 
-    auto response = kuka_sunrise::sendRequest<std_srvs::srv::Trigger::Response>(
+    auto response = kroshu_ros2_core::sendRequest<std_srvs::srv::Trigger::Response>(
       change_state_client_, trigger_request_, 0, 500);
 
     if (!response || !response->success) {
@@ -377,7 +377,7 @@ void MapArm::manageProcessingCallback(
       this->get_logger(),
       "LBR state is not 4, reactivate or restart system manager!");
     if (record_) {
-      rosbag_writer_->reset();
+      rosbag_writer_->close();
       std::string old_path = storage_options_.uri + "/" + storage_options_.uri + "_0.db3";
       std::string new_path = storage_options_.uri + "/motion" + std::to_string(bag_count_) +
         ".db3";

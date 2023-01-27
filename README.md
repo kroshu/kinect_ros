@@ -22,7 +22,7 @@ GitHub CI | SonarCloud
     - Azure_Kinect_Ros_Driver (foxy-devel branch)
         - dnn_model.onnx file name might have to be changed in Findk4abt.cmake because of different versions
         - angles.h header file is needed (can be found on GitHub)
-    - ros2_kuka_sunrise (kroshu)
+    - kroshu_ros2_core (kroshu)
     - kinect_ros (kroshu)
     - urdflbriiwa14
     - robot_control

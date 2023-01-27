@@ -24,7 +24,7 @@
 #include "rcpputils/filesystem_helper.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/bool.hpp"
-#include "kuka_sunrise/internal/service_tools.hpp"
+#include "communication_helpers/service_tools.hpp"
 
 #include "kroshu_ros2_core/ROS2BaseNode.hpp"
 

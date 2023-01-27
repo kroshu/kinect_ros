@@ -203,7 +203,7 @@ void ReplayMotion::timerCallback()
   // valid until start position is reached
   if (first_flag_) {
     first_flag_ = false;
-    auto response = kuka_sunrise::sendRequest<rcl_interfaces::srv::GetParameters::Response>(
+    auto response = kroshu_ros2_core::sendRequest<rcl_interfaces::srv::GetParameters::Response>(
       get_rate_client_, get_rate_request_, 0);
     if (!response) {
       RCLCPP_ERROR(get_logger(), "Could not get rate of joint controller");
@@ -410,7 +410,7 @@ bool ReplayMotion::onRatesChangeRequest(const std::vector<double> & rates)
 bool ReplayMotion::setControllerRate(const double & rate) const
 {
   set_rate_request_->parameters[0].value = rclcpp::ParameterValue(rate).to_value_msg();
-  auto response = kuka_sunrise::sendRequest<rcl_interfaces::srv::SetParameters::Response>(
+  auto response = kroshu_ros2_core::sendRequest<rcl_interfaces::srv::SetParameters::Response>(
     set_rate_client_, set_rate_request_, 0);
   if (!response || !response->results[0].successful) {
     RCLCPP_ERROR(get_logger(), "Could not set rate of joint controller");
